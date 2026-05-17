@@ -26,12 +26,12 @@ async function generateMappings() {
 
     for (const pageUrl of indexPages) {
 
-        try {
+        console.log(
+            "Scanning:",
+            pageUrl
+        );
 
-            console.log(
-                "Scanning:",
-                pageUrl
-            );
+        try {
 
             const response =
                 await axios.get(pageUrl);
@@ -45,13 +45,47 @@ async function generateMappings() {
                     $(element).attr("href");
 
                 const title =
-                    $(element).text().trim();
+                    $(element)
+                        .text()
+                        .trim();
+
+                if (!href || !title) {
+
+                    return;
+                }
+
+                const lowerHref =
+                    href.toLowerCase();
+
+                const isMoviePage =
+
+                    lowerHref.includes("/film/") &&
+                    lowerHref.endsWith(".htm");
+
+                const invalidTitles = [
+
+                    "#",
+                    "torna",
+                    "indice",
+                    "cinema",
+                    "home"
+                ];
+
+                const isInvalidTitle =
+
+                    title.length < 2 ||
+
+                    invalidTitles.some(word =>
+
+                        title
+                            .toLowerCase()
+                            .includes(word)
+                    );
 
                 if (
 
-                    href &&
-                    href.endsWith(".htm") &&
-                    title.length > 0
+                    isMoviePage &&
+                    !isInvalidTitle
 
                 ) {
 
@@ -61,25 +95,15 @@ async function generateMappings() {
                             pageUrl
                         ).href;
 
-                    if (
-
-                        fullUrl.includes("/doppiaggio/") &&
-                        !title.includes("Torna") &&
-                        !title.includes("Home") &&
-                        !title.includes("Cinema")
-
-                    ) {
-
-                        mappings[title] =
-                            fullUrl;
-                    }
+                    mappings[title] =
+                        fullUrl;
                 }
             });
 
         } catch (error) {
 
             console.log(
-                "Failed:",
+                "Failed page:",
                 pageUrl
             );
         }
