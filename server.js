@@ -91,6 +91,29 @@ app.get("/dubbers", async (req, res) => {
                 year
             );
 
+        console.log(
+            "Requested movie:",
+            movie
+        );
+
+        console.log(
+            "Requested year:",
+            year
+        );
+
+        if (bestMatch) {
+
+            console.log(
+                "Matched title:",
+                bestMatch.title
+            );
+
+            console.log(
+                "Matched URL:",
+                bestMatch.url
+            );
+        }
+
         if (!bestMatch) {
 
             return res.json({
@@ -100,11 +123,6 @@ app.get("/dubbers", async (req, res) => {
                 dubbers: []
             });
         }
-
-        console.log(
-            "Matched:",
-            bestMatch.title
-        );
 
         const response =
             await axios.get(
