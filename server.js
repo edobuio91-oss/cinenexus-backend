@@ -15,6 +15,7 @@ function normalizeMovieTitle(title) {
     return title
         .toLowerCase()
         .replace(/[^\w\s]/g, "")
+        .replace(/\s+/g, " ")
         .trim();
 }
 
@@ -23,7 +24,7 @@ function findBestMatch(movie, year) {
     const normalizedMovie =
         normalizeMovieTitle(movie);
 
-    const possibleMatches = [];
+    let bestMatch = null;
 
     Object.keys(movieMappings)
         .forEach((key) => {
@@ -31,39 +32,40 @@ function findBestMatch(movie, year) {
             const normalizedKey =
                 normalizeMovieTitle(key);
 
-            if (
+            const movieWords =
+                normalizedMovie
+                    .split(" ")
+                    .filter(word =>
+                        word.length > 1
+                    );
 
-                normalizedKey.includes(normalizedMovie) ||
-                normalizedMovie.includes(normalizedKey)
+            const allWordsMatch =
+                movieWords.every(word =>
 
-            ) {
+                    normalizedKey.includes(word)
+                );
 
-                possibleMatches.push({
+            if (allWordsMatch) {
 
-                    title: key,
+                if (
 
-                    url: movieMappings[key]
-                });
+                    !bestMatch ||
+
+                    key.includes(year)
+
+                ) {
+
+                    bestMatch = {
+
+                        title: key,
+
+                        url: movieMappings[key]
+                    };
+                }
             }
         });
 
-    if (possibleMatches.length === 0) {
-
-        return null;
-    }
-
-    if (!year) {
-
-        return possibleMatches[0];
-    }
-
-    const yearMatch =
-        possibleMatches.find((match) =>
-
-            match.title.includes(year)
-        );
-
-    return yearMatch || possibleMatches[0];
+    return bestMatch;
 }
 
 app.get("/dubbers", async (req, res) => {
@@ -85,12 +87,6 @@ app.get("/dubbers", async (req, res) => {
             });
         }
 
-        const bestMatch =
-            findBestMatch(
-                movie,
-                year
-            );
-
         console.log(
             "Requested movie:",
             movie
@@ -100,6 +96,12 @@ app.get("/dubbers", async (req, res) => {
             "Requested year:",
             year
         );
+
+        const bestMatch =
+            findBestMatch(
+                movie,
+                year
+            );
 
         if (bestMatch) {
 
@@ -115,6 +117,10 @@ app.get("/dubbers", async (req, res) => {
         }
 
         if (!bestMatch) {
+
+            console.log(
+                "No match found"
+            );
 
             return res.json({
 
@@ -150,6 +156,7 @@ app.get("/dubbers", async (req, res) => {
                         $(cell)
                             .text()
                             .replace(/\n/g, " ")
+                            .replace(/\s+/g, " ")
                             .trim()
                     );
                 });
