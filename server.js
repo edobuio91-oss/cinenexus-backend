@@ -3,30 +3,55 @@ const cors = require("cors");
 const axios = require("axios");
 const cheerio = require("cheerio");
 
+const movieMappings =
+    require("./movieMappings");
+
 const app = express();
 
 app.use(cors());
 
-const movieUrls = {
+function normalizeMovieTitle(title) {
 
-    "Toy Story":
-        "https://www.antoniogenna.net/doppiaggio/film/toystory.htm"
-};
+    return title
+        .toLowerCase()
+        .trim();
+}
 
 app.get("/dubbers", async (req, res) => {
 
     try {
 
-        const movie = req.query.movie;
+        const movie =
+            req.query.movie;
 
         if (!movie) {
 
             return res.status(400).json({
-                error: "Movie title missing"
+
+                error:
+                    "Movie title missing"
             });
         }
 
-        const url = movieUrls[movie];
+        const normalizedMovie =
+            normalizeMovieTitle(movie);
+
+        let url = null;
+
+        Object.keys(movieMappings)
+            .forEach((key) => {
+
+                if (
+
+                    normalizeMovieTitle(key)
+                    === normalizedMovie
+
+                ) {
+
+                    url =
+                        movieMappings[key];
+                }
+            });
 
         if (!url) {
 
@@ -67,8 +92,10 @@ app.get("/dubbers", async (req, res) => {
 
                     characterName &&
                     actorName &&
-                    characterName !== "PERSONAGGI" &&
-                    actorName !== "DOPPIATORI ITALIANI"
+                    characterName !==
+                    "PERSONAGGI" &&
+                    actorName !==
+                    "DOPPIATORI ITALIANI"
 
                 ) {
 
@@ -95,7 +122,8 @@ app.get("/dubbers", async (req, res) => {
 
         return res.status(500).json({
 
-            error: "Scraping failed"
+            error:
+                "Scraping failed"
         });
     }
 });
