@@ -121,38 +121,53 @@ app.get("/dubbers", async (req, res) => {
             const cells =
                 $(element).find("td");
 
-            if (cells.length >= 3) {
+            if (cells.length >= 2) {
 
-                const characterName =
-                    $(cells[0])
-                        .text()
-                        .trim();
+                const texts = [];
 
-                const actorName =
-                    $(cells[2])
-                        .text()
-                        .trim();
+                cells.each((i, cell) => {
 
-                if (
+                    texts.push(
 
-                    characterName &&
-                    actorName &&
-                    characterName !==
-                    "PERSONAGGI" &&
-                    actorName !==
-                    "DOPPIATORI ITALIANI"
+                        $(cell)
+                            .text()
+                            .replace(/\n/g, " ")
+                            .trim()
+                    );
+                });
 
-                ) {
+                const filteredTexts =
+                    texts.filter(
+
+                        text =>
+
+                            text.length > 0 &&
+                            text !==
+                            "PERSONAGGI" &&
+                            text !==
+                            "DOPPIATORI ITALIANI"
+                    );
+
+                if (filteredTexts.length >= 2) {
 
                     dubbers.push({
 
-                        characterName,
+                        characterName:
+                            filteredTexts[0],
 
-                        actorName
+                        actorName:
+                            filteredTexts[
+                                filteredTexts.length - 1
+                            ]
                     });
                 }
             }
         });
+
+        console.log(
+            "Dubbers found:",
+            dubbers.length
+        );
 
         return res.json({
 
