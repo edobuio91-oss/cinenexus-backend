@@ -57,11 +57,6 @@ async function generateMappings() {
                 const lowerHref =
                     href.toLowerCase();
 
-                const isMoviePage =
-
-                    lowerHref.includes("/film/") &&
-                    lowerHref.endsWith(".htm");
-
                 const invalidTitles = [
 
                     "#",
@@ -81,6 +76,14 @@ async function generateMappings() {
                             .toLowerCase()
                             .includes(word)
                     );
+
+                const isMoviePage =
+
+                    lowerHref.endsWith(".htm") &&
+
+                    !lowerHref.includes("film.htm") &&
+
+                    !lowerHref.includes("film-");
 
                 if (
 
