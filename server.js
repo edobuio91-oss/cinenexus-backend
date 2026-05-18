@@ -24,7 +24,14 @@ function findBestMatch(movie, year) {
     const normalizedMovie =
         normalizeMovieTitle(movie);
 
-    let bestMatch = null;
+    const movieWords =
+        normalizedMovie
+            .split(" ")
+            .filter(word =>
+                word.length > 1
+            );
+
+    let scoredMatches = [];
 
     Object.keys(movieMappings)
         .forEach((key) => {
@@ -32,40 +39,56 @@ function findBestMatch(movie, year) {
             const normalizedKey =
                 normalizeMovieTitle(key);
 
-            const movieWords =
-                normalizedMovie
-                    .split(" ")
-                    .filter(word =>
-                        word.length > 1
-                    );
+            let score = 0;
 
-            const allWordsMatch =
-                movieWords.every(word =>
-
-                    normalizedKey.includes(word)
-                );
-
-            if (allWordsMatch) {
+            movieWords.forEach(word => {
 
                 if (
-
-                    !bestMatch ||
-
-                    key.includes(year)
-
+                    normalizedKey.includes(word)
                 ) {
 
-                    bestMatch = {
-
-                        title: key,
-
-                        url: movieMappings[key]
-                    };
+                    score++;
                 }
+            });
+
+            if (score > 0) {
+
+                if (
+                    year &&
+                    key.includes(year)
+                ) {
+
+                    score += 5;
+                }
+
+                if (
+                    normalizedKey === normalizedMovie
+                ) {
+
+                    score += 10;
+                }
+
+                scoredMatches.push({
+
+                    title: key,
+
+                    url: movieMappings[key],
+
+                    score
+                });
             }
         });
 
-    return bestMatch;
+    if (scoredMatches.length === 0) {
+
+        return null;
+    }
+
+    scoredMatches.sort(
+        (a, b) => b.score - a.score
+    );
+
+    return scoredMatches[0];
 }
 
 app.get("/dubbers", async (req, res) => {
