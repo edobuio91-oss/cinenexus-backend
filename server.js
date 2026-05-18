@@ -74,10 +74,18 @@ function findBestMatch(movie, year) {
 
                     url: movieMappings[key],
 
-                    score
+                    score,
+
+                    hasYear:
+                        key.includes(year)
                 });
             }
         });
+
+    console.log(
+        "Possible matches:",
+        scoredMatches
+    );
 
     if (scoredMatches.length === 0) {
 
