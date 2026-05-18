@@ -140,10 +140,17 @@ async function verifyWithWikipedia(movie) {
     }
 }
 
-function findBestMatch(movie, year) {
+function findBestMatch(
+    movie,
+    year,
+    director
+) {
 
     const normalizedMovie =
         normalizeMovieTitle(movie);
+
+    const normalizedDirector =
+        normalizeMovieTitle(director);
 
     const movieWords =
         normalizedMovie
@@ -189,6 +196,19 @@ function findBestMatch(movie, year) {
                     score += 10;
                 }
 
+                if (
+
+                    director &&
+
+                    normalizedKey.includes(
+                        normalizedDirector
+                    )
+
+                ) {
+
+                    score += 100;
+                }
+
                 scoredMatches.push({
 
                     title: key,
@@ -230,6 +250,9 @@ app.get("/dubbers", async (req, res) => {
         const year =
             req.query.year;
 
+        const director =
+            req.query.director;
+
         if (!movie) {
 
             return res.status(400).json({
@@ -249,10 +272,16 @@ app.get("/dubbers", async (req, res) => {
             year
         );
 
+        console.log(
+            "Requested director:",
+            director
+        );
+
         const bestMatch =
             findBestMatch(
                 movie,
-                year
+                year,
+                director
             );
 
         if (bestMatch) {
