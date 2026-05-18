@@ -175,16 +175,61 @@ app.get("/dubbers", async (req, res) => {
 
                 if (filteredTexts.length >= 2) {
 
-                    dubbers.push({
+                    const characterName =
+                        filteredTexts[0];
 
-                        characterName:
-                            filteredTexts[0],
+                    const actorName =
+                        filteredTexts[
+                            filteredTexts.length - 1
+                        ];
 
-                        actorName:
-                            filteredTexts[
-                                filteredTexts.length - 1
-                            ]
-                    });
+                    const invalidWords = [
+
+                        "interpreti",
+                        "doppiatori",
+                        "aggiunte",
+                        "modifiche",
+                        "segnalatelo",
+                        "realizzazione",
+                        "antonio genna",
+                        "torna",
+                        "indice",
+                        "home",
+                        "cinema"
+                    ];
+
+                    const isInvalid =
+
+                        invalidWords.some(word =>
+
+                            characterName
+                                .toLowerCase()
+                                .includes(word)
+
+                            ||
+
+                            actorName
+                                .toLowerCase()
+                                .includes(word)
+                        );
+
+                    if (
+
+                        !isInvalid &&
+
+                        characterName.length > 1 &&
+
+                        actorName.length > 1
+
+                    ) {
+
+                        dubbers.push({
+
+                            characterName,
+
+                            actorName
+                        });
+                    }
                 }
             }
         });
