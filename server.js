@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const cheerio = require("cheerio");
+const wiki = require("wikipedia");
 
 const movieMappings =
     require("./movieMappings.json");
@@ -19,7 +20,10 @@ function normalizeMovieTitle(title) {
         .trim();
 }
 
-function calculateConfidence(dubbers) {
+function calculateConfidence(
+    dubbers,
+    wikipediaCheck
+) {
 
     let confidence = 0;
 
@@ -72,6 +76,20 @@ function calculateConfidence(dubbers) {
         confidence += 0.2;
     }
 
+    if (
+        wikipediaCheck.found
+    ) {
+
+        confidence += 0.05;
+    }
+
+    if (
+        wikipediaCheck.hasDubbingSection
+    ) {
+
+        confidence += 0.05;
+    }
+
     if (confidence > 1) {
 
         confidence = 1;
@@ -80,6 +98,46 @@ function calculateConfidence(dubbers) {
     return Number(
         confidence.toFixed(2)
     );
+}
+
+async function verifyWithWikipedia(movie) {
+
+    try {
+
+        const page =
+            await wiki.page(movie);
+
+        const summary =
+            await page.summary();
+
+        const content =
+            summary.extract
+                .toLowerCase();
+
+        const hasDubbingSection =
+
+            content.includes("doppi") ||
+
+            content.includes("doppiaggio") ||
+
+            content.includes("doppiatori");
+
+        return {
+
+            found: true,
+
+            hasDubbingSection
+        };
+
+    } catch (error) {
+
+        return {
+
+            found: false,
+
+            hasDubbingSection: false
+        };
+    }
 }
 
 function findBestMatch(movie, year) {
@@ -224,6 +282,13 @@ app.get("/dubbers", async (req, res) => {
 
                 confidence: 0,
 
+                wikipediaCheck: {
+
+                    found: false,
+
+                    hasDubbingSection: false
+                },
+
                 dubbers: []
             });
         }
@@ -332,9 +397,15 @@ app.get("/dubbers", async (req, res) => {
             }
         });
 
+        const wikipediaCheck =
+            await verifyWithWikipedia(
+                movie
+            );
+
         const confidence =
             calculateConfidence(
-                dubbers
+                dubbers,
+                wikipediaCheck
             );
 
         const verified =
@@ -350,6 +421,11 @@ app.get("/dubbers", async (req, res) => {
             confidence
         );
 
+        console.log(
+            "Wikipedia check:",
+            wikipediaCheck
+        );
+
         return res.json({
 
             movie,
@@ -360,6 +436,8 @@ app.get("/dubbers", async (req, res) => {
             verified,
 
             confidence,
+
+            wikipediaCheck,
 
             dubbers
         });
