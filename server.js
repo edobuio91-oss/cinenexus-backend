@@ -58,7 +58,7 @@ function findBestMatch(movie, year) {
                     key.includes(year)
                 ) {
 
-                    score += 5;
+                    score += 50;
                 }
 
                 if (
