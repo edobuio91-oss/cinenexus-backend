@@ -20,6 +20,22 @@ for (let i = 1; i <= 25; i++) {
     }
 }
 
+for (let i = 1; i <= 10; i++) {
+
+    if (i === 1) {
+
+        indexPages.push(
+            "https://www.antoniogenna.net/doppiaggio/anim.htm"
+        );
+
+    } else {
+
+        indexPages.push(
+            `https://www.antoniogenna.net/doppiaggio/anim-${i}.htm`
+        );
+    }
+}
+
 async function generateMappings() {
 
     const mappings = {};
@@ -77,17 +93,21 @@ async function generateMappings() {
                             .includes(word)
                     );
 
-                const isMoviePage =
+                const isValidPage =
 
                     lowerHref.endsWith(".htm") &&
 
                     !lowerHref.includes("film.htm") &&
 
-                    !lowerHref.includes("film-");
+                    !lowerHref.includes("film-") &&
+
+                    !lowerHref.includes("anim.htm") &&
+
+                    !lowerHref.includes("anim-");
 
                 if (
 
-                    isMoviePage &&
+                    isValidPage &&
                     !isInvalidTitle
 
                 ) {
