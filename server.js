@@ -19,6 +19,69 @@ function normalizeMovieTitle(title) {
         .trim();
 }
 
+function calculateConfidence(dubbers) {
+
+    let confidence = 0;
+
+    if (dubbers.length >= 15) {
+
+        confidence += 0.5;
+
+    } else if (dubbers.length >= 8) {
+
+        confidence += 0.3;
+
+    } else if (dubbers.length >= 3) {
+
+        confidence += 0.15;
+    }
+
+    const uniqueActors =
+        new Set(
+
+            dubbers.map(
+                dubber =>
+                    dubber.actorName
+            )
+        );
+
+    if (
+
+        uniqueActors.size >=
+        dubbers.length * 0.8
+
+    ) {
+
+        confidence += 0.2;
+    }
+
+    const suspiciousEntries =
+        dubbers.filter(dubber =>
+
+            dubber.characterName
+                .length < 2 ||
+
+            dubber.actorName
+                .length < 2
+        );
+
+    if (
+        suspiciousEntries.length === 0
+    ) {
+
+        confidence += 0.2;
+    }
+
+    if (confidence > 1) {
+
+        confidence = 1;
+    }
+
+    return Number(
+        confidence.toFixed(2)
+    );
+}
+
 function findBestMatch(movie, year) {
 
     const normalizedMovie =
@@ -157,6 +220,10 @@ app.get("/dubbers", async (req, res) => {
 
                 movie,
 
+                verified: false,
+
+                confidence: 0,
+
                 dubbers: []
             });
         }
@@ -265,9 +332,22 @@ app.get("/dubbers", async (req, res) => {
             }
         });
 
+        const confidence =
+            calculateConfidence(
+                dubbers
+            );
+
+        const verified =
+            confidence >= 0.6;
+
         console.log(
             "Dubbers found:",
             dubbers.length
+        );
+
+        console.log(
+            "Confidence:",
+            confidence
         );
 
         return res.json({
@@ -276,6 +356,10 @@ app.get("/dubbers", async (req, res) => {
 
             matchedTitle:
                 bestMatch.title,
+
+            verified,
+
+            confidence,
 
             dubbers
         });
