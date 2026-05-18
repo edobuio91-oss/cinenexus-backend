@@ -118,8 +118,19 @@ async function generateMappings() {
                             pageUrl
                         ).href;
 
-                    mappings[title] =
-                        fullUrl;
+                    if (!mappings[title]) {
+
+                        mappings[title] =
+                            fullUrl;
+
+                    } else {
+
+                        console.log(
+                            "Duplicate skipped:",
+                            title,
+                            fullUrl
+                        );
+                    }
                 }
             });
 
