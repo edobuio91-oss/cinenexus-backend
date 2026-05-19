@@ -283,46 +283,56 @@ async function getWikipediaDubbers(
                 return;
             }
 
-            const lines =
-                td.text()
-                    .split("\n")
-                    .map(line =>
+            const rawHtml =
+                td.html() || "";
 
-                        line
+            console.log(
+                "INFOBOX HTML:",
+                rawHtml
+            );
+
+            const rows =
+                rawHtml
+                    .split(/<br\s*\/?>/i)
+                    .map(row =>
+
+                        cheerio
+                            .load(row)
+                            .text()
                             .replace(/\s+/g, " ")
                             .trim()
                     )
                     .filter(Boolean);
 
             console.log(
-                "INFOBOX ENTRIES:",
-                lines
+                "INFOBOX ROWS:",
+                rows
             );
 
-            lines.forEach(line => {
+            rows.forEach(row => {
 
                 let parts = null;
 
                 if (
-                    line.includes(":")
+                    row.includes(":")
                 ) {
 
                     parts =
-                        line.split(":");
+                        row.split(":");
 
                 } else if (
-                    line.includes(" – ")
+                    row.includes(" – ")
                 ) {
 
                     parts =
-                        line.split(" – ");
+                        row.split(" – ");
 
                 } else if (
-                    line.includes(" - ")
+                    row.includes(" - ")
                 ) {
 
                     parts =
-                        line.split(" - ");
+                        row.split(" - ");
                 }
 
                 if (
