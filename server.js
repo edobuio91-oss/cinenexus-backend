@@ -154,16 +154,65 @@ async function getWikipediaDubbers(movie) {
 
     try {
 
-        const page =
-            await wiki.page(movie);
+        const response =
+            await axios.get(
 
-        const html =
-            await page.html();
+                "https://it.wikipedia.org/w/api.php",
 
-        const $ =
-            cheerio.load(html);
+                {
 
-        const dubbers = [];
+                    params: {
+
+                        action: "query",
+
+                        prop: "revisions",
+
+                        rvprop: "content",
+
+                        titles: movie,
+
+                        format: "json",
+
+                        origin: "*"
+                    }
+                }
+            );
+
+        const pages =
+
+            response.data
+                .query
+                .pages;
+
+        const pageKey =
+            Object.keys(pages)[0];
+
+        const rawContent =
+
+            pages[pageKey]
+                .revisions?.[0]?.["*"]
+
+            ||
+
+            pages[pageKey]
+                .revisions?.[0]?.slots
+                ?.main?.["*"]
+
+            ||
+
+            "";
+
+        if (!rawContent) {
+
+            console.log(
+                "No Wikipedia raw content found"
+            );
+
+            return [];
+        }
+
+        const lowerContent =
+            rawContent.toLowerCase();
 
         const sectionKeywords = [
 
@@ -173,33 +222,19 @@ async function getWikipediaDubbers(movie) {
             "cast italiano"
         ];
 
-        let targetSection = null;
+        let sectionFound = false;
 
-        $("h2, h3").each((index, element) => {
-
-            const title =
-                $(element)
-                    .text()
-                    .toLowerCase();
-
-            const matchesSection =
-
-                sectionKeywords.some(keyword =>
-
-                    title.includes(keyword)
-                );
+        sectionKeywords.forEach(keyword => {
 
             if (
-                matchesSection &&
-                !targetSection
+                lowerContent.includes(keyword)
             ) {
 
-                targetSection =
-                    element;
+                sectionFound = true;
             }
         });
 
-        if (!targetSection) {
+        if (!sectionFound) {
 
             console.log(
                 "No Wikipedia dubbing section found"
@@ -208,117 +243,110 @@ async function getWikipediaDubbers(movie) {
             return [];
         }
 
-        let current =
-            $(targetSection).next();
+        const lines =
+            rawContent.split("\n");
 
-        while (
+        const dubbers = [];
 
-            current.length > 0 &&
+        const invalidWords = [
 
-            !["h2", "h3"].includes(
-                current[0].tagName
-            )
+            "anime",
+            "episodi",
+            "manga",
+            "ova",
+            "videogioco",
+            "videogiochi",
+            "spin-off",
+            "sigla",
+            "opening",
+            "ending"
+        ];
 
-        ) {
+        lines.forEach(line => {
 
-            current.find("li").each((index, li) => {
+            const cleanLine =
+                line
+                    .replace(/\[\[|\]\]/g, "")
+                    .replace(/\{\{|\}\}/g, "")
+                    .replace(/\|/g, " ")
+                    .trim();
 
-                const text =
-                    $(li)
-                        .text()
-                        .replace(/\s+/g, " ")
-                        .trim();
+            const lowerLine =
+                cleanLine.toLowerCase();
 
-                const invalidWords = [
+            const isInvalid =
 
-                    "serie",
-                    "anime",
-                    "episodi",
-                    "videogioco",
-                    "videogiochi",
-                    "spin-off",
-                    "manga",
-                    "ova",
-                    "sigla",
-                    "opening",
-                    "ending"
-                ];
+                invalidWords.some(word =>
 
-                const isInvalid =
+                    lowerLine.includes(word)
+                );
 
-                    invalidWords.some(word =>
+            if (isInvalid) {
 
-                        text
-                            .toLowerCase()
-                            .includes(word)
-                    );
+                return;
+            }
 
-                if (isInvalid) {
+            const separators = [
 
-                    return;
-                }
+                " – ",
+                " - ",
+                ": "
+            ];
 
-                const separators = [
+            let parts = null;
 
-                    " – ",
-                    " - ",
-                    ": "
-                ];
-
-                let parts = null;
-
-                for (const separator of separators) {
-
-                    if (
-                        text.includes(separator)
-                    ) {
-
-                        parts =
-                            text.split(separator);
-
-                        break;
-                    }
-                }
+            for (const separator of separators) {
 
                 if (
-
-                    parts &&
-
-                    parts.length >= 2
-
+                    cleanLine.includes(separator)
                 ) {
 
-                    const characterName =
-                        parts[0]
-                            .trim();
+                    parts =
+                        cleanLine.split(separator);
 
-                    const actorName =
-                        parts[1]
-                            .trim();
-
-                    if (
-
-                        characterName.length > 1 &&
-
-                        actorName.length > 1 &&
-
-                        actorName.length < 80
-
-                    ) {
-
-                        dubbers.push({
-
-                            characterName,
-
-                            actorName
-                        });
-                    }
+                    break;
                 }
-            });
+            }
 
-            current =
-                current.next();
-        }
+            if (
+
+                parts &&
+
+                parts.length >= 2
+
+            ) {
+
+                const characterName =
+                    parts[0]
+                        .trim();
+
+                const actorName =
+                    parts[1]
+                        .trim();
+
+                const looksValid =
+
+                    characterName.length > 1 &&
+
+                    actorName.length > 1 &&
+
+                    actorName.length < 80 &&
+
+                    !characterName.includes("=") &&
+
+                    !actorName.includes("=");
+
+                if (looksValid) {
+
+                    dubbers.push({
+
+                        characterName,
+
+                        actorName
+                    });
+                }
+            }
+        });
 
         const uniqueDubbers =
 
@@ -337,12 +365,12 @@ async function getWikipediaDubbers(movie) {
                     )
             );
 
-        return uniqueDubbers;
+        return uniqueDubbers.slice(0, 30);
 
     } catch (error) {
 
         console.log(
-            "Wikipedia dubbers failed"
+            "Wikipedia structured parser failed"
         );
 
         return [];
