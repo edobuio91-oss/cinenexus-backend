@@ -251,9 +251,10 @@ async function getWikipediaDubbers(
 
         $(".sinottico tr").each((i, tr) => {
 
-            const rowText =
+            const headerText =
 
                 $(tr)
+                    .find("th")
                     .text()
                     .replace(/\s+/g, " ")
                     .trim()
@@ -261,7 +262,7 @@ async function getWikipediaDubbers(
 
             if (
 
-                !rowText.includes(
+                !headerText.includes(
                     "doppiatori italiani"
                 )
 
@@ -274,52 +275,54 @@ async function getWikipediaDubbers(
                 "ITALIAN DUBBERS INFOBOX FOUND"
             );
 
-            const rowHtml =
-                $(tr).html();
+            const td =
+                $(tr).find("td");
 
-            if (!rowHtml) {
+            if (!td.length) {
 
                 return;
             }
 
-            const cleanedHtml =
-
-                rowHtml
-                    .replace(/<br\s*\/?>/gi, "\n")
-                    .replace(/<\/li>/gi, "\n")
-                    .replace(/<\/p>/gi, "\n")
-                    .replace(/<[^>]+>/g, "")
-                    .replace(/\t/g, "")
-                    .replace(/\r/g, "");
-
-            const entries =
-                cleanedHtml
+            const lines =
+                td.text()
                     .split("\n")
-                    .map(entry => entry.trim())
+                    .map(line =>
+
+                        line
+                            .replace(/\s+/g, " ")
+                            .trim()
+                    )
                     .filter(Boolean);
 
             console.log(
                 "INFOBOX ENTRIES:",
-                entries
+                lines
             );
 
-            entries.forEach(entry => {
+            lines.forEach(line => {
 
                 let parts = null;
 
                 if (
-                    entry.includes(":")
+                    line.includes(":")
                 ) {
 
                     parts =
-                        entry.split(":");
+                        line.split(":");
 
                 } else if (
-                    entry.includes(" - ")
+                    line.includes(" – ")
                 ) {
 
                     parts =
-                        entry.split(" - ");
+                        line.split(" – ");
+
+                } else if (
+                    line.includes(" - ")
+                ) {
+
+                    parts =
+                        line.split(" - ");
                 }
 
                 if (
