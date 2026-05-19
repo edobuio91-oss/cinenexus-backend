@@ -151,7 +151,10 @@ async function verifyWithWikipedia(movie) {
     }
 }
 
-async function getWikipediaDubbers(movie) {
+async function getWikipediaDubbers(
+    movie,
+    year
+) {
 
     try {
 
@@ -179,7 +182,13 @@ async function getWikipediaDubbers(movie) {
 
                         rvprop: "content",
 
-                        titles: movie,
+                        titles:
+
+                            year
+
+                                ? `${movie} (film ${year})`
+
+                                : movie,
 
                         format: "json",
 
@@ -235,9 +244,9 @@ async function getWikipediaDubbers(movie) {
         const doc =
             wtf(rawContent);
 
-            console.log(
-                doc.json()
-            );
+        console.log(
+            doc.json()
+        );
 
         const sections =
             doc.sections();
@@ -718,7 +727,8 @@ app.get("/dubbers", async (req, res) => {
 
             const wikipediaDubbers =
                 await getWikipediaDubbers(
-                    movie
+                    movie,
+                    year
                 );
 
             if (
