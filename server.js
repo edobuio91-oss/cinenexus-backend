@@ -235,6 +235,10 @@ async function getWikipediaDubbers(movie) {
         const doc =
             wtf(rawContent);
 
+            console.log(
+                doc.json()
+            );
+
         const sections =
             doc.sections();
 
