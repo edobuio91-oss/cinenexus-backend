@@ -227,42 +227,27 @@ async function getWikipediaDubbers(movie) {
             return [];
         }
 
-        const lowerContent =
-            rawContent.toLowerCase();
-
-        const sectionKeywords = [
-
-            "doppiaggio",
-            "doppiatori",
-            "edizione italiana",
-            "cast italiano"
-        ];
-
-        let sectionFound = false;
-
-        sectionKeywords.forEach(keyword => {
-
-            if (
-                lowerContent.includes(keyword)
-            ) {
-
-                sectionFound = true;
-            }
-        });
-
-        if (!sectionFound) {
-
-            console.log(
-                "No Wikipedia dubbing section found"
-            );
-
-            return [];
-        }
+        console.log(
+            "Wikipedia raw content loaded"
+        );
 
         const lines =
             rawContent.split("\n");
 
         const dubbers = [];
+
+        const positiveKeywords = [
+
+            "doppi",
+
+            "voce",
+
+            "voci",
+
+            "italian",
+
+            "doppiatori italiani"
+        ];
 
         const invalidWords = [
 
@@ -289,6 +274,18 @@ async function getWikipediaDubbers(movie) {
 
             const lowerLine =
                 cleanLine.toLowerCase();
+
+            const hasPositiveKeyword =
+
+                positiveKeywords.some(keyword =>
+
+                    lowerLine.includes(keyword)
+                );
+
+            if (!hasPositiveKeyword) {
+
+                return;
+            }
 
             const isInvalid =
 
