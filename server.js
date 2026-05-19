@@ -294,14 +294,15 @@ async function getWikipediaDubbers(
 
             lists.forEach(list => {
 
-                const items =
-                    list.items();
-
-                items.forEach(item => {
+                list.forEach(item => {
 
                     const text =
-                        item.text
-                            || "";
+
+                        typeof item === "string"
+
+                            ? item
+
+                            : item.text || "";
 
                     const cleanText =
                         text
