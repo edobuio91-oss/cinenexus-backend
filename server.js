@@ -3,7 +3,6 @@ const cors = require("cors");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const wiki = require("wikipedia");
-const wtf = require("wtf_wikipedia");
 
 const movieMappings =
     require("./movieMappings.json");
@@ -158,10 +157,27 @@ async function getWikipediaDubbers(
 
     try {
 
+        const pageTitle =
+
+            year
+
+                ? `${movie} (film ${year})`
+
+                : movie;
+
+        const wikipediaUrl =
+
+            `https://it.wikipedia.org/wiki/${encodeURIComponent(pageTitle.replace(/\s+/g, "_"))}`;
+
+        console.log(
+            "Wikipedia URL:",
+            wikipediaUrl
+        );
+
         const response =
             await axios.get(
 
-                "https://it.wikipedia.org/w/api.php",
+                wikipediaUrl,
 
                 {
 
@@ -169,105 +185,219 @@ async function getWikipediaDubbers(
 
                         "User-Agent":
 
-                            "CineNexusBot/1.0 (https://cinenexus.app)"
-                    },
-
-                    params: {
-
-                        action: "query",
-
-                        prop: "revisions",
-
-                        rvslots: "main",
-
-                        rvprop: "content",
-
-                        titles:
-
-                            year
-
-                                ? `${movie} (film ${year})`
-
-                                : movie,
-
-                        format: "json",
-
-                        formatversion: 2
+                            "Mozilla/5.0"
                     }
                 }
             );
 
-        const pages =
+        const $ =
+            cheerio.load(
+                response.data
+            );
 
-            response.data
-                .query
-                .pages;
+        const dubbers = [];
 
-        const page =
-            pages[0];
+        const keywords = [
 
-        let rawContent = "";
+            "doppiaggio",
+            "doppiatori",
+            "edizione italiana",
+            "cast italiano",
+            "voci italiane",
+            "personaggi"
+        ];
 
-        if (
+        let matchedSection = null;
 
-            page.revisions &&
+        $("h2, h3").each((index, element) => {
 
-            page.revisions.length > 0
+            const title =
+                $(element)
+                    .text()
+                    .toLowerCase()
+                    .trim();
 
-        ) {
+            const matches =
 
-            rawContent =
+                keywords.some(keyword =>
 
-                page.revisions[0]
-                    .slots
-                    ?.main
-                    ?.content
+                    title.includes(keyword)
+                );
 
-                ||
+            if (
+                matches &&
+                !matchedSection
+            ) {
 
-                "";
-        }
+                matchedSection =
+                    element;
 
-        if (!rawContent) {
+                console.log(
+                    "MATCHED SECTION:",
+                    title
+                );
+            }
+        });
+
+        if (!matchedSection) {
 
             console.log(
-                "No Wikipedia raw content found"
+                "No matching section found"
             );
 
             return [];
         }
 
-        console.log(
-            "Wikipedia raw content loaded"
-        );
+        let current =
+            $(matchedSection).next();
 
-        const doc =
-            wtf(rawContent);
+        while (
 
-        const sections =
-            doc.sections();
+            current.length > 0 &&
 
-        console.log(
-            JSON.stringify(
-                sections.map(section => ({
+            !["h2", "h3"]
+                .includes(
+                    current[0].tagName
+                )
 
-                    title:
-                        section.title(),
+        ) {
 
-                    lists:
-                        section.lists()
-                })),
-                null,
-                2
-            )
-        );
+            current.find("li").each((i, li) => {
 
-        return [];
+                const text =
+
+                    $(li)
+                        .text()
+                        .replace(/\s+/g, " ")
+                        .trim();
+
+                if (
+                    text.length < 3
+                ) {
+
+                    return;
+                }
+
+                console.log(
+                    "LIST ITEM:",
+                    text
+                );
+
+                const separators = [
+
+                    " – ",
+                    " - ",
+                    ": "
+                ];
+
+                let parts = null;
+
+                for (const separator of separators) {
+
+                    if (
+                        text.includes(separator)
+                    ) {
+
+                        parts =
+                            text.split(
+                                separator
+                            );
+
+                        break;
+                    }
+                }
+
+                if (
+
+                    parts &&
+
+                    parts.length >= 2
+
+                ) {
+
+                    const characterName =
+                        parts[0]
+                            .trim();
+
+                    const actorName =
+                        parts[1]
+                            .trim();
+
+                    const invalidWords = [
+
+                        "film",
+                        "serie",
+                        "episodio",
+                        "videogioco",
+                        "regia",
+                        "produzione",
+                        "distribuzione"
+                    ];
+
+                    const isInvalid =
+
+                        invalidWords.some(word =>
+
+                            characterName
+                                .toLowerCase()
+                                .includes(word)
+
+                            ||
+
+                            actorName
+                                .toLowerCase()
+                                .includes(word)
+                        );
+
+                    if (
+
+                        !isInvalid &&
+
+                        characterName.length > 1 &&
+
+                        actorName.length > 1 &&
+
+                        actorName.length < 80
+
+                    ) {
+
+                        dubbers.push({
+
+                            characterName,
+
+                            actorName
+                        });
+                    }
+                }
+            });
+
+            current =
+                current.next();
+        }
+
+        const uniqueDubbers =
+
+            dubbers.filter(
+                (item, index, self) =>
+
+                    index ===
+
+                    self.findIndex(d =>
+
+                        d.characterName ===
+                        item.characterName &&
+
+                        d.actorName ===
+                        item.actorName
+                    )
+            );
+
+        return uniqueDubbers.slice(0, 30);
 
     } catch (error) {
 
         console.log(
-            "Wikipedia structured parser failed"
+            "Wikipedia HTML parser failed"
         );
 
         console.log(error);
