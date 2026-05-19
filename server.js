@@ -302,18 +302,21 @@ async function getWikipediaDubbers(
                 rawHtml
             );
 
-            const rows =
-                rawHtml
-                    .split(/<br\s*\/?>/i)
-                    .map(row =>
+            const rows = [];
 
-                        cheerio
-                            .load(row)
-                            .text()
-                            .replace(/\s+/g, " ")
-                            .trim()
-                    )
-                    .filter(Boolean);
+            td.find("li").each((i, li) => {
+
+                const line =
+                    $(li)
+                        .text()
+                        .replace(/\s+/g, " ")
+                        .trim();
+
+                if (line) {
+
+                    rows.push(line);
+                }
+            });
 
             console.log(
                 "INFOBOX ROWS:",
