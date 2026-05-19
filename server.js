@@ -244,10 +244,6 @@ async function getWikipediaDubbers(
         const doc =
             wtf(rawContent);
 
-        console.log(
-            doc.json()
-        );
-
         const sections =
             doc.sections();
 
@@ -259,7 +255,8 @@ async function getWikipediaDubbers(
             "doppiatori",
             "edizione italiana",
             "cast italiano",
-            "voci italiane"
+            "voci italiane",
+            "personaggi"
         ];
 
         sections.forEach(section => {
@@ -287,86 +284,129 @@ async function getWikipediaDubbers(
                 title
             );
 
+            const lists =
+                section.lists();
+
             console.log(
-                section.text()
+                "LISTS FOUND:",
+                lists.length
             );
 
-            const text =
-                section.text();
+            lists.forEach(list => {
 
-            const lines =
-                text.split("\n");
+                const items =
+                    list.items();
 
-            lines.forEach(line => {
+                items.forEach(item => {
 
-                const cleanLine =
-                    line.trim();
+                    const text =
+                        item.text
+                            || "";
 
-                if (
-                    cleanLine.length < 3
-                ) {
-
-                    return;
-                }
-
-                const separators = [
-
-                    " – ",
-                    " - ",
-                    ": "
-                ];
-
-                let parts = null;
-
-                for (const separator of separators) {
+                    const cleanText =
+                        text
+                            .replace(/\s+/g, " ")
+                            .trim();
 
                     if (
-                        cleanLine.includes(separator)
+                        cleanText.length < 3
                     ) {
 
-                        parts =
-                            cleanLine.split(
-                                separator
+                        return;
+                    }
+
+                    console.log(
+                        "LIST ITEM:",
+                        cleanText
+                    );
+
+                    const separators = [
+
+                        " – ",
+                        " - ",
+                        ": "
+                    ];
+
+                    let parts = null;
+
+                    for (const separator of separators) {
+
+                        if (
+                            cleanText.includes(separator)
+                        ) {
+
+                            parts =
+                                cleanText.split(
+                                    separator
+                                );
+
+                            break;
+                        }
+                    }
+
+                    if (
+
+                        parts &&
+
+                        parts.length >= 2
+
+                    ) {
+
+                        const characterName =
+                            parts[0]
+                                .trim();
+
+                        const actorName =
+                            parts[1]
+                                .trim();
+
+                        const invalidWords = [
+
+                            "film",
+                            "serie",
+                            "episodio",
+                            "videogioco",
+                            "regia",
+                            "produzione",
+                            "distribuzione"
+                        ];
+
+                        const isInvalid =
+
+                            invalidWords.some(word =>
+
+                                characterName
+                                    .toLowerCase()
+                                    .includes(word)
+
+                                ||
+
+                                actorName
+                                    .toLowerCase()
+                                    .includes(word)
                             );
 
-                        break;
+                        if (
+
+                            !isInvalid &&
+
+                            characterName.length > 1 &&
+
+                            actorName.length > 1 &&
+
+                            actorName.length < 80
+
+                        ) {
+
+                            dubbers.push({
+
+                                characterName,
+
+                                actorName
+                            });
+                        }
                     }
-                }
-
-                if (
-
-                    parts &&
-
-                    parts.length >= 2
-
-                ) {
-
-                    const characterName =
-                        parts[0]
-                            .trim();
-
-                    const actorName =
-                        parts[1]
-                            .trim();
-
-                    const invalid =
-
-                        actorName.length > 80 ||
-
-                        characterName.includes("=") ||
-
-                        actorName.includes("=");
-
-                    if (!invalid) {
-
-                        dubbers.push({
-
-                            characterName,
-
-                            actorName
-                        });
-                    }
-                }
+                });
             });
         });
 
