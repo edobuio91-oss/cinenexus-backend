@@ -187,20 +187,42 @@ async function getWikipediaDubbers(movie) {
         const pageKey =
             Object.keys(pages)[0];
 
-        const rawContent =
+        let rawContent = "";
+
+        const revision =
 
             pages[pageKey]
-                .revisions?.[0]?.["*"]
+                ?.revisions?.[0];
 
-            ||
+        if (revision) {
 
-            pages[pageKey]
-                .revisions?.[0]?.slots
-                ?.main?.["*"]
+            if (revision["*"]) {
 
-            ||
+                rawContent =
+                    revision["*"];
+            }
 
-            "";
+            else if (
+
+                revision.slots &&
+
+                revision.slots.main
+
+            ) {
+
+                rawContent =
+
+                    revision.slots.main["*"]
+
+                    ||
+
+                    revision.slots.main.content
+
+                    ||
+
+                    "";
+            }
+        }
 
         if (!rawContent) {
 
@@ -372,6 +394,8 @@ async function getWikipediaDubbers(movie) {
         console.log(
             "Wikipedia structured parser failed"
         );
+
+        console.log(error);
 
         return [];
     }
