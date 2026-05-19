@@ -161,11 +161,20 @@ async function getWikipediaDubbers(movie) {
 
                 {
 
+                    headers: {
+
+                        "User-Agent":
+
+                            "CineNexusBot/1.0 (https://cinenexus.app)"
+                    },
+
                     params: {
 
                         action: "query",
 
                         prop: "revisions",
+
+                        rvslots: "main",
 
                         rvprop: "content",
 
@@ -173,7 +182,7 @@ async function getWikipediaDubbers(movie) {
 
                         format: "json",
 
-                        origin: "*"
+                        formatversion: 2
                     }
                 }
             );
@@ -184,44 +193,29 @@ async function getWikipediaDubbers(movie) {
                 .query
                 .pages;
 
-        const pageKey =
-            Object.keys(pages)[0];
+        const page =
+            pages[0];
 
         let rawContent = "";
 
-        const revision =
+        if (
 
-            pages[pageKey]
-                ?.revisions?.[0];
+            page.revisions &&
 
-        if (revision) {
+            page.revisions.length > 0
 
-            if (revision["*"]) {
+        ) {
 
-                rawContent =
-                    revision["*"];
-            }
+            rawContent =
 
-            else if (
+                page.revisions[0]
+                    .slots
+                    ?.main
+                    ?.content
 
-                revision.slots &&
+                ||
 
-                revision.slots.main
-
-            ) {
-
-                rawContent =
-
-                    revision.slots.main["*"]
-
-                    ||
-
-                    revision.slots.main.content
-
-                    ||
-
-                    "";
-            }
+                "";
         }
 
         if (!rawContent) {
