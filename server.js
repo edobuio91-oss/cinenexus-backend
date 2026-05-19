@@ -3,6 +3,7 @@ const cors = require("cors");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const wiki = require("wikipedia");
+const wtf = require("wtf_wikipedia");
 
 const movieMappings =
     require("./movieMappings.json");
@@ -231,134 +232,120 @@ async function getWikipediaDubbers(movie) {
             "Wikipedia raw content loaded"
         );
 
-        const lines =
-            rawContent.split("\n");
+        const doc =
+            wtf(rawContent);
+
+        const sections =
+            doc.sections();
 
         const dubbers = [];
 
-        const positiveKeywords = [
+        const keywords = [
 
-            "doppi",
-
-            "voce",
-
-            "voci",
-
-            "italian",
-
-            "doppiatori italiani"
+            "doppiaggio",
+            "doppiatori",
+            "edizione italiana",
+            "cast italiano",
+            "voci italiane"
         ];
 
-        const invalidWords = [
+        sections.forEach(section => {
 
-            "anime",
-            "episodi",
-            "manga",
-            "ova",
-            "videogioco",
-            "videogiochi",
-            "spin-off",
-            "sigla",
-            "opening",
-            "ending"
-        ];
+            const title =
+                (
+                    section.title() || ""
+                )
+                    .toLowerCase();
 
-        lines.forEach(line => {
+            const matches =
 
-            const cleanLine =
-                line
-                    .replace(/\[\[|\]\]/g, "")
-                    .replace(/\{\{|\}\}/g, "")
-                    .replace(/\|/g, " ")
-                    .trim();
+                keywords.some(keyword =>
 
-            const lowerLine =
-                cleanLine.toLowerCase();
-
-            const hasPositiveKeyword =
-
-                positiveKeywords.some(keyword =>
-
-                    lowerLine.includes(keyword)
+                    title.includes(keyword)
                 );
 
-            if (!hasPositiveKeyword) {
+            if (!matches) {
 
                 return;
             }
 
-            const isInvalid =
+            const text =
+                section.text();
 
-                invalidWords.some(word =>
+            const lines =
+                text.split("\n");
 
-                    lowerLine.includes(word)
-                );
+            lines.forEach(line => {
 
-            if (isInvalid) {
-
-                return;
-            }
-
-            const separators = [
-
-                " – ",
-                " - ",
-                ": "
-            ];
-
-            let parts = null;
-
-            for (const separator of separators) {
+                const cleanLine =
+                    line.trim();
 
                 if (
-                    cleanLine.includes(separator)
+                    cleanLine.length < 3
                 ) {
 
-                    parts =
-                        cleanLine.split(separator);
-
-                    break;
+                    return;
                 }
-            }
 
-            if (
+                const separators = [
 
-                parts &&
+                    " – ",
+                    " - ",
+                    ": "
+                ];
 
-                parts.length >= 2
+                let parts = null;
 
-            ) {
+                for (const separator of separators) {
 
-                const characterName =
-                    parts[0]
-                        .trim();
+                    if (
+                        cleanLine.includes(separator)
+                    ) {
 
-                const actorName =
-                    parts[1]
-                        .trim();
+                        parts =
+                            cleanLine.split(
+                                separator
+                            );
 
-                const looksValid =
-
-                    characterName.length > 1 &&
-
-                    actorName.length > 1 &&
-
-                    actorName.length < 80 &&
-
-                    !characterName.includes("=") &&
-
-                    !actorName.includes("=");
-
-                if (looksValid) {
-
-                    dubbers.push({
-
-                        characterName,
-
-                        actorName
-                    });
+                        break;
+                    }
                 }
-            }
+
+                if (
+
+                    parts &&
+
+                    parts.length >= 2
+
+                ) {
+
+                    const characterName =
+                        parts[0]
+                            .trim();
+
+                    const actorName =
+                        parts[1]
+                            .trim();
+
+                    const invalid =
+
+                        actorName.length > 80 ||
+
+                        characterName.includes("=") ||
+
+                        actorName.includes("=");
+
+                    if (!invalid) {
+
+                        dubbers.push({
+
+                            characterName,
+
+                            actorName
+                        });
+                    }
+                }
+            });
         });
 
         const uniqueDubbers =
