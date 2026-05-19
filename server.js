@@ -271,10 +271,19 @@ async function getWikipediaDubbers(
                 "ITALIAN DUBBERS INFOBOX FOUND"
             );
 
-            const td =
+            let td =
                 $(tr)
                     .find("td")
                     .first();
+
+            if (!td.length) {
+
+                td =
+                    $(tr)
+                        .next("tr")
+                        .find("td")
+                        .first();
+            }
 
             if (!td.length) {
 
