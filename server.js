@@ -282,6 +282,15 @@ async function getWikipediaDubbers(
                 return;
             }
 
+            console.log(
+                "MATCHED SECTION:",
+                title
+            );
+
+            console.log(
+                section.text()
+            );
+
             const text =
                 section.text();
 
