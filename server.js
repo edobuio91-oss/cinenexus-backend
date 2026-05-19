@@ -22,10 +22,16 @@ function normalizeMovieTitle(title) {
 
 function calculateConfidence(
     dubbers,
-    wikipediaCheck
+    wikipediaCheck,
+    source
 ) {
 
     let confidence = 0;
+
+    if (source === "wikipedia") {
+
+        confidence += 0.35;
+    }
 
     if (dubbers.length >= 15) {
 
@@ -126,7 +132,9 @@ async function verifyWithWikipedia(movie) {
 
             found: true,
 
-            hasDubbingSection
+            hasDubbingSection,
+
+            content
         };
 
     } catch (error) {
@@ -135,22 +143,126 @@ async function verifyWithWikipedia(movie) {
 
             found: false,
 
-            hasDubbingSection: false
+            hasDubbingSection: false,
+
+            content: ""
         };
     }
 }
 
-function findBestMatch(
+async function getWikipediaDubbers(movie) {
+
+    try {
+
+        const page =
+            await wiki.page(movie);
+
+        const html =
+            await page.html();
+
+        const $ =
+            cheerio.load(html);
+
+        const dubbers = [];
+
+        $("li").each((index, element) => {
+
+            const text =
+                $(element)
+                    .text()
+                    .trim();
+
+            if (
+
+                text.includes(" – ") ||
+
+                text.includes(" - ")
+
+            ) {
+
+                const separator =
+
+                    text.includes(" – ")
+                        ? " – "
+                        : " - ";
+
+                const parts =
+                    text.split(separator);
+
+                if (
+                    parts.length >= 2
+                ) {
+
+                    dubbers.push({
+
+                        characterName:
+                            parts[0].trim(),
+
+                        actorName:
+                            parts[1].trim()
+                    });
+                }
+            }
+        });
+
+        return dubbers;
+
+    } catch (error) {
+
+        console.log(
+            "Wikipedia dubbers failed"
+        );
+
+        return [];
+    }
+}
+
+function isMatchValid(
+    bestMatch,
     movie,
-    year,
-    director
+    year
 ) {
+
+    if (!bestMatch) {
+
+        return false;
+    }
 
     const normalizedMovie =
         normalizeMovieTitle(movie);
 
-    const normalizedDirector =
-        normalizeMovieTitle(director);
+    const normalizedTitle =
+        normalizeMovieTitle(
+            bestMatch.title
+        );
+
+    const titleMatches =
+
+        normalizedTitle.includes(
+            normalizedMovie
+        );
+
+    const yearMatches =
+
+        !year ||
+
+        bestMatch.title.includes(
+            year
+        );
+
+    return (
+        titleMatches &&
+        yearMatches
+    );
+}
+
+function findBestMatch(
+    movie,
+    year
+) {
+
+    const normalizedMovie =
+        normalizeMovieTitle(movie);
 
     const movieWords =
         normalizedMovie
@@ -164,8 +276,13 @@ function findBestMatch(
     Object.keys(movieMappings)
         .forEach((key) => {
 
+            const item =
+                movieMappings[key];
+
             const normalizedKey =
-                normalizeMovieTitle(key);
+                normalizeMovieTitle(
+                    item.title
+                );
 
             let score = 0;
 
@@ -183,42 +300,37 @@ function findBestMatch(
 
                 if (
                     year &&
-                    key.includes(year)
+                    item.year === year
                 ) {
 
-                    score += 50;
+                    score += 100;
                 }
 
                 if (
                     normalizedKey === normalizedMovie
                 ) {
 
-                    score += 10;
-                }
-
-                if (
-
-                    director &&
-
-                    normalizedKey.includes(
-                        normalizedDirector
-                    )
-
-                ) {
-
-                    score += 100;
+                    score += 25;
                 }
 
                 scoredMatches.push({
 
-                    title: key,
+                    title:
+                        item.title,
 
-                    url: movieMappings[key],
+                    url:
+                        item.url,
 
-                    score,
+                    year:
+                        item.year,
 
-                    hasYear:
-                        key.includes(year)
+                    director:
+                        item.director,
+
+                    type:
+                        item.type,
+
+                    score
                 });
             }
         });
@@ -250,9 +362,6 @@ app.get("/dubbers", async (req, res) => {
         const year =
             req.query.year;
 
-        const director =
-            req.query.director;
-
         if (!movie) {
 
             return res.status(400).json({
@@ -272,173 +381,206 @@ app.get("/dubbers", async (req, res) => {
             year
         );
 
-        console.log(
-            "Requested director:",
-            director
-        );
-
         const bestMatch =
             findBestMatch(
                 movie,
-                year,
-                director
+                year
             );
 
-        if (bestMatch) {
+        let dubbers = [];
+
+        let source =
+            "antoniogenna";
+
+        let matchedTitle =
+            null;
+
+        if (
+
+            bestMatch &&
+
+            isMatchValid(
+                bestMatch,
+                movie,
+                year
+            )
+
+        ) {
+
+            matchedTitle =
+                bestMatch.title;
 
             console.log(
                 "Matched title:",
-                bestMatch.title
+                matchedTitle
             );
 
             console.log(
                 "Matched URL:",
                 bestMatch.url
             );
-        }
 
-        if (!bestMatch) {
+            const response =
+                await axios.get(
+                    bestMatch.url
+                );
 
-            console.log(
-                "No match found"
-            );
+            const $ =
+                cheerio.load(response.data);
 
-            return res.json({
+            $("tr").each((index, element) => {
 
-                movie,
+                const cells =
+                    $(element).find("td");
 
-                verified: false,
+                if (cells.length >= 2) {
 
-                confidence: 0,
+                    const texts = [];
 
-                wikipediaCheck: {
+                    cells.each((i, cell) => {
 
-                    found: false,
+                        texts.push(
 
-                    hasDubbingSection: false
-                },
+                            $(cell)
+                                .text()
+                                .replace(/\n/g, " ")
+                                .replace(/\s+/g, " ")
+                                .trim()
+                        );
+                    });
 
-                dubbers: []
-            });
-        }
+                    const filteredTexts =
+                        texts.filter(
 
-        const response =
-            await axios.get(
-                bestMatch.url
-            );
+                            text =>
 
-        const $ =
-            cheerio.load(response.data);
-
-        const dubbers = [];
-
-        $("tr").each((index, element) => {
-
-            const cells =
-                $(element).find("td");
-
-            if (cells.length >= 2) {
-
-                const texts = [];
-
-                cells.each((i, cell) => {
-
-                    texts.push(
-
-                        $(cell)
-                            .text()
-                            .replace(/\n/g, " ")
-                            .replace(/\s+/g, " ")
-                            .trim()
-                    );
-                });
-
-                const filteredTexts =
-                    texts.filter(
-
-                        text =>
-
-                            text.length > 0 &&
-                            text !==
-                            "PERSONAGGI" &&
-                            text !==
-                            "DOPPIATORI ITALIANI"
-                    );
-
-                if (filteredTexts.length >= 2) {
-
-                    const characterName =
-                        filteredTexts[0];
-
-                    const actorName =
-                        filteredTexts[
-                            filteredTexts.length - 1
-                        ];
-
-                    const invalidWords = [
-
-                        "interpreti",
-                        "doppiatori",
-                        "aggiunte",
-                        "modifiche",
-                        "segnalatelo",
-                        "realizzazione",
-                        "antonio genna",
-                        "torna",
-                        "indice",
-                        "home",
-                        "cinema"
-                    ];
-
-                    const isInvalid =
-
-                        invalidWords.some(word =>
-
-                            characterName
-                                .toLowerCase()
-                                .includes(word)
-
-                            ||
-
-                            actorName
-                                .toLowerCase()
-                                .includes(word)
+                                text.length > 0 &&
+                                text !==
+                                "PERSONAGGI" &&
+                                text !==
+                                "DOPPIATORI ITALIANI"
                         );
 
-                    if (
+                    if (filteredTexts.length >= 2) {
 
-                        !isInvalid &&
+                        const characterName =
+                            filteredTexts[0];
 
-                        characterName.length > 1 &&
+                        const actorName =
+                            filteredTexts[
+                                filteredTexts.length - 1
+                            ];
 
-                        actorName.length > 1
+                        const invalidWords = [
 
-                    ) {
+                            "interpreti",
+                            "doppiatori",
+                            "aggiunte",
+                            "modifiche",
+                            "segnalatelo",
+                            "realizzazione",
+                            "antonio genna",
+                            "torna",
+                            "indice",
+                            "home",
+                            "cinema"
+                        ];
 
-                        dubbers.push({
+                        const isInvalid =
 
-                            characterName,
+                            invalidWords.some(word =>
 
-                            actorName
-                        });
+                                characterName
+                                    .toLowerCase()
+                                    .includes(word)
+
+                                ||
+
+                                actorName
+                                    .toLowerCase()
+                                    .includes(word)
+                            );
+
+                        if (
+
+                            !isInvalid &&
+
+                            characterName.length > 1 &&
+
+                            actorName.length > 1
+
+                        ) {
+
+                            dubbers.push({
+
+                                characterName,
+
+                                actorName
+                            });
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
         const wikipediaCheck =
             await verifyWithWikipedia(
                 movie
             );
 
+        const antonioGennaRejected =
+
+            dubbers.length < 3 ||
+
+            !bestMatch ||
+
+            !isMatchValid(
+                bestMatch,
+                movie,
+                year
+            );
+
+        if (
+
+            antonioGennaRejected &&
+
+            wikipediaCheck.found
+
+        ) {
+
+            console.log(
+                "Using Wikipedia fallback"
+            );
+
+            const wikipediaDubbers =
+                await getWikipediaDubbers(
+                    movie
+                );
+
+            if (
+                wikipediaDubbers.length > 0
+            ) {
+
+                dubbers =
+                    wikipediaDubbers;
+
+                source =
+                    "wikipedia";
+            }
+        }
+
         const confidence =
             calculateConfidence(
+
                 dubbers,
-                wikipediaCheck
+
+                wikipediaCheck,
+
+                source
             );
 
         const verified =
-            confidence >= 0.6;
+            confidence >= 0.5;
 
         console.log(
             "Dubbers found:",
@@ -446,21 +588,22 @@ app.get("/dubbers", async (req, res) => {
         );
 
         console.log(
-            "Confidence:",
-            confidence
+            "Source:",
+            source
         );
 
         console.log(
-            "Wikipedia check:",
-            wikipediaCheck
+            "Confidence:",
+            confidence
         );
 
         return res.json({
 
             movie,
 
-            matchedTitle:
-                bestMatch.title,
+            matchedTitle,
+
+            source,
 
             verified,
 
