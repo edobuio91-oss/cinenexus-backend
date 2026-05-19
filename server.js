@@ -161,13 +161,13 @@ async function getWikipediaDubbers(
 
             year
 
-                ? `${movie} (film ${year})`
+                ? `${movie}_(film_${year})`
 
-                : movie;
+                : movie.replace(/\s+/g, "_");
 
         const wikipediaUrl =
 
-            `https://it.wikipedia.org/wiki/${encodeURIComponent(pageTitle.replace(/\s+/g, "_"))}`;
+            `https://it.wikipedia.org/wiki/${pageTitle}`;
 
         console.log(
             "Wikipedia URL:",
@@ -197,116 +197,173 @@ async function getWikipediaDubbers(
 
         const dubbers = [];
 
-        function parseWikipediaLine(text) {
+        function addDubber(
+            actorName,
+            characterName
+        ) {
 
             if (
-                text.length < 3
+                !actorName ||
+                !characterName
+            ) {
+
+                return;
+            }
+
+            actorName =
+                actorName
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+            characterName =
+                characterName
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+            const invalidWords = [
+
+                "regia",
+                "produzione",
+                "distribuzione",
+                "musiche",
+                "durata",
+                "uscita",
+                "genere"
+            ];
+
+            const isInvalid =
+
+                invalidWords.some(word =>
+
+                    actorName
+                        .toLowerCase()
+                        .includes(word)
+
+                    ||
+
+                    characterName
+                        .toLowerCase()
+                        .includes(word)
+                );
+
+            if (
+
+                isInvalid ||
+
+                actorName.length < 2 ||
+
+                characterName.length < 2 ||
+
+                actorName.length > 80 ||
+
+                characterName.length > 120
+
             ) {
 
                 return;
             }
 
             console.log(
-                "LIST ITEM:",
-                text
+                "DUBBER FOUND:",
+                actorName,
+                characterName
             );
 
-            const separators = [
+            dubbers.push({
 
-                " – ",
-                " - ",
-                ": "
-            ];
+                characterName,
 
-            let parts = null;
+                actorName
+            });
+        }
 
-            for (const separator of separators) {
+        // CERCA INFOBOX
+        $(".sinottico tr").each((i, tr) => {
 
-                if (
-                    text.includes(separator)
-                ) {
+            const header =
 
-                    parts =
-                        text.split(
-                            separator
-                        );
+                $(tr)
+                    .find("th")
+                    .text()
+                    .replace(/\s+/g, " ")
+                    .trim()
+                    .toLowerCase();
 
-                    break;
-                }
-            }
+            const value =
+
+                $(tr)
+                    .find("td")
+                    .text()
+                    .replace(/\s+/g, " ")
+                    .trim();
 
             if (
 
-                parts &&
-
-                parts.length >= 2
+                header.includes(
+                    "doppiatori italiani"
+                )
 
             ) {
 
-                const characterName =
-                    parts[0]
-                        .trim();
+                console.log(
+                    "ITALIAN DUBBERS INFOBOX FOUND"
+                );
 
-                const actorName =
-                    parts[1]
-                        .trim();
+                // esempio:
+                // Gigi Proietti: Genio, ...
+                const entries =
+                    value.split(",");
 
-                const invalidWords = [
+                entries.forEach(entry => {
 
-                    "film",
-                    "serie",
-                    "episodio",
-                    "videogioco",
-                    "regia",
-                    "produzione",
-                    "distribuzione"
-                ];
+                    const cleanEntry =
+                        entry.trim();
 
-                const isInvalid =
+                    if (
+                        !cleanEntry.includes(":")
+                    ) {
 
-                    invalidWords.some(word =>
+                        return;
+                    }
 
+                    const parts =
+                        cleanEntry.split(":");
+
+                    if (
+                        parts.length < 2
+                    ) {
+
+                        return;
+                    }
+
+                    const actorName =
+                        parts[0]
+                            .trim();
+
+                    const characterName =
+                        parts
+                            .slice(1)
+                            .join(":")
+                            .trim();
+
+                    addDubber(
+                        actorName,
                         characterName
-                            .toLowerCase()
-                            .includes(word)
-
-                        ||
-
-                        actorName
-                            .toLowerCase()
-                            .includes(word)
                     );
-
-                if (
-
-                    !isInvalid &&
-
-                    characterName.length > 1 &&
-
-                    actorName.length > 1 &&
-
-                    actorName.length < 80
-
-                ) {
-
-                    dubbers.push({
-
-                        characterName,
-
-                        actorName
-                    });
-                }
+                });
             }
-        }
+        });
+
+        // FALLBACK:
+        // cerca liste nella sezione personaggi/doppiaggio
 
         const keywords = [
 
             "doppiaggio",
             "doppiatori",
-            "edizione italiana",
-            "cast italiano",
+            "personaggi",
             "voci italiane",
-            "personaggi"
+            "cast italiano"
         ];
 
         let matchedSection = null;
@@ -341,90 +398,78 @@ async function getWikipediaDubbers(
             }
         });
 
-        if (!matchedSection) {
+        if (matchedSection) {
 
-            console.log(
-                "No matching section found"
-            );
+            let current =
+                $(matchedSection).next();
 
-            return [];
-        }
+            while (
 
-        let current =
-            $(matchedSection).next();
+                current.length > 0 &&
 
-        while (
+                !["h2", "h3"]
+                    .includes(
+                        current[0].tagName
+                    )
 
-            current.length > 0 &&
+            ) {
 
-            !["h2", "h3"]
-                .includes(
-                    current[0].tagName
-                )
+                current.find("li").each((i, li) => {
 
-        ) {
+                    const text =
 
-            current.find("li").each((i, li) => {
-
-                const text =
-
-                    $(li)
-                        .text()
-                        .replace(/\s+/g, " ")
-                        .trim();
-
-                parseWikipediaLine(text);
-            });
-
-            current.find("tr").each((i, tr) => {
-
-                const cells =
-                    $(tr).find("td");
-
-                if (cells.length >= 2) {
-
-                    const characterName =
-
-                        $(cells[0])
+                        $(li)
                             .text()
                             .replace(/\s+/g, " ")
                             .trim();
 
-                    const actorName =
+                    console.log(
+                        "LIST ITEM:",
+                        text
+                    );
 
-                        $(cells[1])
-                            .text()
-                            .replace(/\s+/g, " ")
-                            .trim();
+                    const separators = [
+
+                        " – ",
+                        " - ",
+                        ": "
+                    ];
+
+                    let parts = null;
+
+                    for (const separator of separators) {
+
+                        if (
+                            text.includes(separator)
+                        ) {
+
+                            parts =
+                                text.split(
+                                    separator
+                                );
+
+                            break;
+                        }
+                    }
 
                     if (
 
-                        characterName.length > 1 &&
+                        parts &&
 
-                        actorName.length > 1 &&
-
-                        actorName.length < 80
+                        parts.length >= 2
 
                     ) {
 
-                        console.log(
-                            "TABLE MATCH:",
-                            characterName,
-                            actorName
+                        addDubber(
+                            parts[1],
+                            parts[0]
                         );
-
-                        dubbers.push({
-
-                            characterName,
-
-                            actorName
-                        });
                     }
-                }
-            });
+                });
 
-            current =
-                current.next();
+                current =
+                    current.next();
+            }
         }
 
         const uniqueDubbers =
@@ -444,12 +489,17 @@ async function getWikipediaDubbers(
                     )
             );
 
+        console.log(
+            "Wikipedia dubbers parsed:",
+            uniqueDubbers.length
+        );
+
         return uniqueDubbers.slice(0, 30);
 
     } catch (error) {
 
         console.log(
-            "Wikipedia HTML parser failed"
+            "Wikipedia parser failed"
         );
 
         console.log(error);
