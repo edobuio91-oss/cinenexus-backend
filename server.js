@@ -220,35 +220,7 @@ async function getWikipediaDubbers(
                     .replace(/\s+/g, " ")
                     .trim();
 
-            const invalidWords = [
-
-                "regia",
-                "produzione",
-                "distribuzione",
-                "musiche",
-                "durata",
-                "uscita",
-                "genere"
-            ];
-
-            const isInvalid =
-
-                invalidWords.some(word =>
-
-                    actorName
-                        .toLowerCase()
-                        .includes(word)
-
-                    ||
-
-                    characterName
-                        .toLowerCase()
-                        .includes(word)
-                );
-
             if (
-
-                isInvalid ||
 
                 actorName.length < 2 ||
 
@@ -277,30 +249,19 @@ async function getWikipediaDubbers(
             });
         }
 
-        // =========================
-        // INFOBOX WIKIPEDIA
-        // =========================
-
         $(".sinottico tr").each((i, tr) => {
 
-            const header =
+            const rowText =
 
                 $(tr)
-                    .find("th")
                     .text()
                     .replace(/\s+/g, " ")
                     .trim()
                     .toLowerCase();
 
-            const value =
-
-                $(tr)
-                    .find("td")
-                    .html();
-
             if (
 
-                !header.includes(
+                !rowText.includes(
                     "doppiatori italiani"
                 )
 
@@ -313,16 +274,23 @@ async function getWikipediaDubbers(
                 "ITALIAN DUBBERS INFOBOX FOUND"
             );
 
-            if (!value) {
+            const rowHtml =
+                $(tr).html();
+
+            if (!rowHtml) {
 
                 return;
             }
 
             const cleanedHtml =
 
-                value
+                rowHtml
                     .replace(/<br\s*\/?>/gi, "\n")
-                    .replace(/<\/?[^>]+(>|$)/g, "");
+                    .replace(/<\/li>/gi, "\n")
+                    .replace(/<\/p>/gi, "\n")
+                    .replace(/<[^>]+>/g, "")
+                    .replace(/\t/g, "")
+                    .replace(/\r/g, "");
 
             const entries =
                 cleanedHtml
@@ -378,125 +346,6 @@ async function getWikipediaDubbers(
                 );
             });
         });
-
-        // =========================
-        // FALLBACK SEZIONI
-        // =========================
-
-        const keywords = [
-
-            "doppiaggio",
-            "doppiatori",
-            "personaggi",
-            "voci italiane",
-            "cast italiano"
-        ];
-
-        let matchedSection = null;
-
-        $("h2, h3").each((index, element) => {
-
-            const title =
-                $(element)
-                    .text()
-                    .toLowerCase()
-                    .trim();
-
-            const matches =
-
-                keywords.some(keyword =>
-
-                    title.includes(keyword)
-                );
-
-            if (
-                matches &&
-                !matchedSection
-            ) {
-
-                matchedSection =
-                    element;
-
-                console.log(
-                    "MATCHED SECTION:",
-                    title
-                );
-            }
-        });
-
-        if (matchedSection) {
-
-            let current =
-                $(matchedSection).next();
-
-            while (
-
-                current.length > 0 &&
-
-                !["h2", "h3"]
-                    .includes(
-                        current[0].tagName
-                    )
-
-            ) {
-
-                current.find("li").each((i, li) => {
-
-                    const text =
-
-                        $(li)
-                            .text()
-                            .replace(/\s+/g, " ")
-                            .trim();
-
-                    console.log(
-                        "LIST ITEM:",
-                        text
-                    );
-
-                    const separators = [
-
-                        " – ",
-                        " - ",
-                        ": "
-                    ];
-
-                    let parts = null;
-
-                    for (const separator of separators) {
-
-                        if (
-                            text.includes(separator)
-                        ) {
-
-                            parts =
-                                text.split(
-                                    separator
-                                );
-
-                            break;
-                        }
-                    }
-
-                    if (
-
-                        parts &&
-
-                        parts.length >= 2
-
-                    ) {
-
-                        addDubber(
-                            parts[1],
-                            parts[0]
-                        );
-                    }
-                });
-
-                current =
-                    current.next();
-            }
-        }
 
         const uniqueDubbers =
 
