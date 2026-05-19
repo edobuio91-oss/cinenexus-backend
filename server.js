@@ -176,15 +176,10 @@ async function getWikipediaDubbers(
 
         const response =
             await axios.get(
-
                 wikipediaUrl,
-
                 {
-
                     headers: {
-
                         "User-Agent":
-
                             "Mozilla/5.0"
                     }
                 }
@@ -255,6 +250,7 @@ async function getWikipediaDubbers(
 
                 $(tr)
                     .find("th")
+                    .first()
                     .text()
                     .replace(/\s+/g, " ")
                     .trim()
@@ -276,9 +272,15 @@ async function getWikipediaDubbers(
             );
 
             const td =
-                $(tr).find("td");
+                $(tr)
+                    .find("td")
+                    .first();
 
             if (!td.length) {
+
+                console.log(
+                    "NO TD FOUND"
+                );
 
                 return;
             }
