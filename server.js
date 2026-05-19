@@ -165,47 +165,179 @@ async function getWikipediaDubbers(movie) {
 
         const dubbers = [];
 
-        $("li").each((index, element) => {
+        const sectionKeywords = [
 
-            const text =
+            "doppiaggio",
+            "doppiatori",
+            "edizione italiana",
+            "cast italiano"
+        ];
+
+        let targetSection = null;
+
+        $("h2, h3").each((index, element) => {
+
+            const title =
                 $(element)
                     .text()
-                    .trim();
+                    .toLowerCase();
+
+            const matchesSection =
+
+                sectionKeywords.some(keyword =>
+
+                    title.includes(keyword)
+                );
 
             if (
-
-                text.includes(" – ") ||
-
-                text.includes(" - ")
-
+                matchesSection &&
+                !targetSection
             ) {
 
-                const separator =
-
-                    text.includes(" – ")
-                        ? " – "
-                        : " - ";
-
-                const parts =
-                    text.split(separator);
-
-                if (
-                    parts.length >= 2
-                ) {
-
-                    dubbers.push({
-
-                        characterName:
-                            parts[0].trim(),
-
-                        actorName:
-                            parts[1].trim()
-                    });
-                }
+                targetSection =
+                    element;
             }
         });
 
-        return dubbers;
+        if (!targetSection) {
+
+            console.log(
+                "No Wikipedia dubbing section found"
+            );
+
+            return [];
+        }
+
+        let current =
+            $(targetSection).next();
+
+        while (
+
+            current.length > 0 &&
+
+            !["h2", "h3"].includes(
+                current[0].tagName
+            )
+
+        ) {
+
+            current.find("li").each((index, li) => {
+
+                const text =
+                    $(li)
+                        .text()
+                        .replace(/\s+/g, " ")
+                        .trim();
+
+                const invalidWords = [
+
+                    "serie",
+                    "anime",
+                    "episodi",
+                    "videogioco",
+                    "videogiochi",
+                    "spin-off",
+                    "manga",
+                    "ova",
+                    "sigla",
+                    "opening",
+                    "ending"
+                ];
+
+                const isInvalid =
+
+                    invalidWords.some(word =>
+
+                        text
+                            .toLowerCase()
+                            .includes(word)
+                    );
+
+                if (isInvalid) {
+
+                    return;
+                }
+
+                const separators = [
+
+                    " – ",
+                    " - ",
+                    ": "
+                ];
+
+                let parts = null;
+
+                for (const separator of separators) {
+
+                    if (
+                        text.includes(separator)
+                    ) {
+
+                        parts =
+                            text.split(separator);
+
+                        break;
+                    }
+                }
+
+                if (
+
+                    parts &&
+
+                    parts.length >= 2
+
+                ) {
+
+                    const characterName =
+                        parts[0]
+                            .trim();
+
+                    const actorName =
+                        parts[1]
+                            .trim();
+
+                    if (
+
+                        characterName.length > 1 &&
+
+                        actorName.length > 1 &&
+
+                        actorName.length < 80
+
+                    ) {
+
+                        dubbers.push({
+
+                            characterName,
+
+                            actorName
+                        });
+                    }
+                }
+            });
+
+            current =
+                current.next();
+        }
+
+        const uniqueDubbers =
+
+            dubbers.filter(
+                (item, index, self) =>
+
+                    index ===
+
+                    self.findIndex(d =>
+
+                        d.characterName ===
+                        item.characterName &&
+
+                        d.actorName ===
+                        item.actorName
+                    )
+            );
+
+        return uniqueDubbers;
 
     } catch (error) {
 
@@ -246,9 +378,7 @@ function isMatchValid(
 
         !year ||
 
-        bestMatch.title.includes(
-            year
-        );
+        bestMatch.year === year;
 
     return (
         titleMatches &&
