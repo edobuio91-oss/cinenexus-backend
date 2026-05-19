@@ -277,7 +277,10 @@ async function getWikipediaDubbers(
             });
         }
 
-        // CERCA INFOBOX
+        // =========================
+        // INFOBOX WIKIPEDIA
+        // =========================
+
         $(".sinottico tr").each((i, tr) => {
 
             const header =
@@ -293,69 +296,92 @@ async function getWikipediaDubbers(
 
                 $(tr)
                     .find("td")
-                    .text()
-                    .replace(/\s+/g, " ")
-                    .trim();
+                    .html();
 
             if (
 
-                header.includes(
+                !header.includes(
                     "doppiatori italiani"
                 )
 
             ) {
 
-                console.log(
-                    "ITALIAN DUBBERS INFOBOX FOUND"
-                );
-
-                // esempio:
-                // Gigi Proietti: Genio, ...
-                const entries =
-                    value.split(",");
-
-                entries.forEach(entry => {
-
-                    const cleanEntry =
-                        entry.trim();
-
-                    if (
-                        !cleanEntry.includes(":")
-                    ) {
-
-                        return;
-                    }
-
-                    const parts =
-                        cleanEntry.split(":");
-
-                    if (
-                        parts.length < 2
-                    ) {
-
-                        return;
-                    }
-
-                    const actorName =
-                        parts[0]
-                            .trim();
-
-                    const characterName =
-                        parts
-                            .slice(1)
-                            .join(":")
-                            .trim();
-
-                    addDubber(
-                        actorName,
-                        characterName
-                    );
-                });
+                return;
             }
+
+            console.log(
+                "ITALIAN DUBBERS INFOBOX FOUND"
+            );
+
+            if (!value) {
+
+                return;
+            }
+
+            const cleanedHtml =
+
+                value
+                    .replace(/<br\s*\/?>/gi, "\n")
+                    .replace(/<\/?[^>]+(>|$)/g, "");
+
+            const entries =
+                cleanedHtml
+                    .split("\n")
+                    .map(entry => entry.trim())
+                    .filter(Boolean);
+
+            console.log(
+                "INFOBOX ENTRIES:",
+                entries
+            );
+
+            entries.forEach(entry => {
+
+                let parts = null;
+
+                if (
+                    entry.includes(":")
+                ) {
+
+                    parts =
+                        entry.split(":");
+
+                } else if (
+                    entry.includes(" - ")
+                ) {
+
+                    parts =
+                        entry.split(" - ");
+                }
+
+                if (
+                    !parts ||
+                    parts.length < 2
+                ) {
+
+                    return;
+                }
+
+                const actorName =
+                    parts[0]
+                        .trim();
+
+                const characterName =
+                    parts
+                        .slice(1)
+                        .join(":")
+                        .trim();
+
+                addDubber(
+                    actorName,
+                    characterName
+                );
+            });
         });
 
-        // FALLBACK:
-        // cerca liste nella sezione personaggi/doppiaggio
+        // =========================
+        // FALLBACK SEZIONI
+        // =========================
 
         const keywords = [
 
