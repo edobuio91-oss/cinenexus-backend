@@ -197,6 +197,108 @@ async function getWikipediaDubbers(
 
         const dubbers = [];
 
+        function parseWikipediaLine(text) {
+
+            if (
+                text.length < 3
+            ) {
+
+                return;
+            }
+
+            console.log(
+                "LIST ITEM:",
+                text
+            );
+
+            const separators = [
+
+                " – ",
+                " - ",
+                ": "
+            ];
+
+            let parts = null;
+
+            for (const separator of separators) {
+
+                if (
+                    text.includes(separator)
+                ) {
+
+                    parts =
+                        text.split(
+                            separator
+                        );
+
+                    break;
+                }
+            }
+
+            if (
+
+                parts &&
+
+                parts.length >= 2
+
+            ) {
+
+                const characterName =
+                    parts[0]
+                        .trim();
+
+                const actorName =
+                    parts[1]
+                        .trim();
+
+                const invalidWords = [
+
+                    "film",
+                    "serie",
+                    "episodio",
+                    "videogioco",
+                    "regia",
+                    "produzione",
+                    "distribuzione"
+                ];
+
+                const isInvalid =
+
+                    invalidWords.some(word =>
+
+                        characterName
+                            .toLowerCase()
+                            .includes(word)
+
+                        ||
+
+                        actorName
+                            .toLowerCase()
+                            .includes(word)
+                    );
+
+                if (
+
+                    !isInvalid &&
+
+                    characterName.length > 1 &&
+
+                    actorName.length > 1 &&
+
+                    actorName.length < 80
+
+                ) {
+
+                    dubbers.push({
+
+                        characterName,
+
+                        actorName
+                    });
+                }
+            }
+        }
+
         const keywords = [
 
             "doppiaggio",
@@ -271,87 +373,31 @@ async function getWikipediaDubbers(
                         .replace(/\s+/g, " ")
                         .trim();
 
-                if (
-                    text.length < 3
-                ) {
+                parseWikipediaLine(text);
+            });
 
-                    return;
-                }
+            current.find("tr").each((i, tr) => {
 
-                console.log(
-                    "LIST ITEM:",
-                    text
-                );
+                const cells =
+                    $(tr).find("td");
 
-                const separators = [
-
-                    " – ",
-                    " - ",
-                    ": "
-                ];
-
-                let parts = null;
-
-                for (const separator of separators) {
-
-                    if (
-                        text.includes(separator)
-                    ) {
-
-                        parts =
-                            text.split(
-                                separator
-                            );
-
-                        break;
-                    }
-                }
-
-                if (
-
-                    parts &&
-
-                    parts.length >= 2
-
-                ) {
+                if (cells.length >= 2) {
 
                     const characterName =
-                        parts[0]
+
+                        $(cells[0])
+                            .text()
+                            .replace(/\s+/g, " ")
                             .trim();
 
                     const actorName =
-                        parts[1]
+
+                        $(cells[1])
+                            .text()
+                            .replace(/\s+/g, " ")
                             .trim();
 
-                    const invalidWords = [
-
-                        "film",
-                        "serie",
-                        "episodio",
-                        "videogioco",
-                        "regia",
-                        "produzione",
-                        "distribuzione"
-                    ];
-
-                    const isInvalid =
-
-                        invalidWords.some(word =>
-
-                            characterName
-                                .toLowerCase()
-                                .includes(word)
-
-                            ||
-
-                            actorName
-                                .toLowerCase()
-                                .includes(word)
-                        );
-
                     if (
-
-                        !isInvalid &&
 
                         characterName.length > 1 &&
 
@@ -360,6 +406,12 @@ async function getWikipediaDubbers(
                         actorName.length < 80
 
                     ) {
+
+                        console.log(
+                            "TABLE MATCH:",
+                            characterName,
+                            actorName
+                        );
 
                         dubbers.push({
 
