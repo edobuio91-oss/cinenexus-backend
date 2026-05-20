@@ -449,8 +449,57 @@ function isMatchValid(
 
 function findBestMatch(
     movie,
-    year
+    year,
+    tmdbId
 ) {
+
+    if (tmdbId) {
+
+        console.log(
+            "Searching by TMDB ID:",
+            tmdbId
+        );
+
+        const exactMatch =
+            Object.values(movieMappings)
+                .find(item =>
+
+                    String(item.tmdbId) ===
+                    String(tmdbId)
+                );
+
+        if (exactMatch) {
+
+            console.log(
+                "TMDB EXACT MATCH FOUND:",
+                exactMatch.title
+            );
+
+            return {
+
+                title:
+                    exactMatch.title,
+
+                url:
+                    exactMatch.url,
+
+                year:
+                    exactMatch.year,
+
+                director:
+                    exactMatch.director,
+
+                type:
+                    exactMatch.type,
+
+                score: 9999
+            };
+        }
+
+        console.log(
+            "No TMDB match found, fallback to title matching"
+        );
+    }
 
     const normalizedMovie =
         normalizeMovieTitle(movie);
@@ -553,6 +602,9 @@ app.get("/dubbers", async (req, res) => {
         const year =
             req.query.year;
 
+        const tmdbId =
+            req.query.tmdbId;
+
         if (!movie) {
 
             return res.status(400).json({
@@ -572,10 +624,16 @@ app.get("/dubbers", async (req, res) => {
             year
         );
 
+        console.log(
+            "Requested TMDB ID:",
+            tmdbId
+        );
+
         const bestMatch =
             findBestMatch(
                 movie,
-                year
+                year,
+                tmdbId
             );
 
         let dubbers = [];

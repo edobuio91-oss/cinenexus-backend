@@ -2,6 +2,8 @@ const fs = require("fs");
 const axios = require("axios");
 const cheerio = require("cheerio");
 
+const TMDB_API_KEY = "ccfb56079b1e4e01c68c03045ea23a21";
+
 const indexPages = [];
 
 for (let i = 1; i <= 25; i++) {
@@ -60,6 +62,88 @@ function cleanText(text) {
         .replace(/\s+/g, " ")
         .replace(/\n/g, " ")
         .trim();
+}
+
+async function getTmdbMatch(
+    title,
+    year
+) {
+
+    try {
+
+        await delay(250);
+
+        const response =
+            await axios.get(
+
+                "https://api.themoviedb.org/3/search/movie",
+
+                {
+
+                    params: {
+
+                        api_key:
+                            TMDB_API_KEY,
+
+                        query:
+                            title,
+
+                        year:
+                            year,
+
+                        language:
+                            "it-IT"
+                    }
+                }
+            );
+
+        const results =
+            response.data.results || [];
+
+        if (!results.length) {
+
+            console.log(
+                "TMDB NOT FOUND:",
+                title
+            );
+
+            return null;
+        }
+
+        const best =
+            results[0];
+
+        console.log(
+            "TMDB MATCH:",
+            title,
+            "->",
+            best.id
+        );
+
+        return {
+
+            tmdbId:
+                best.id,
+
+            tmdbTitle:
+                best.title,
+
+            tmdbOriginalTitle:
+                best.original_title,
+
+            tmdbReleaseDate:
+                best.release_date
+        };
+
+    } catch (error) {
+
+        console.log(
+            "TMDB FAILED:",
+            title
+        );
+
+        return null;
+    }
 }
 
 async function extractMetadata(url) {
@@ -256,6 +340,14 @@ async function generateMappings() {
                         link.url
                     );
 
+                const tmdbData =
+                    await getTmdbMatch(
+
+                        link.title,
+
+                        metadata.year
+                    );
+
                 const uniqueKey =
 
                     `${link.title}_${metadata.year}_${metadata.type}`;
@@ -276,6 +368,18 @@ async function generateMappings() {
 
                     type:
                         metadata.type,
+
+                    tmdbId:
+                        tmdbData?.tmdbId || null,
+
+                    tmdbTitle:
+                        tmdbData?.tmdbTitle || "",
+
+                    tmdbOriginalTitle:
+                        tmdbData?.tmdbOriginalTitle || "",
+
+                    tmdbReleaseDate:
+                        tmdbData?.tmdbReleaseDate || "",
 
                     metadataSuccess:
                         metadata.success
