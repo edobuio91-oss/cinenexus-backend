@@ -298,13 +298,33 @@ async function generateMappings() {
 
                     lowerHref.endsWith(".htm") &&
 
+                    (
+                        lowerHref.includes("film/")
+                        ||
+                        lowerHref.includes("film1/")
+                        ||
+                        lowerHref.includes("anim/")
+                    ) &&
+
                     !lowerHref.includes("film.htm") &&
 
                     !lowerHref.includes("film-") &&
 
                     !lowerHref.includes("anim.htm") &&
 
-                    !lowerHref.includes("anim-");
+                    !lowerHref.includes("anim-") &&
+
+                    !lowerHref.includes("speciali/") &&
+
+                    !lowerHref.includes("soap") &&
+
+                    !lowerHref.includes("voci.htm") &&
+
+                    !lowerHref.includes("bibliografia") &&
+
+                    !lowerHref.includes("ringraz") &&
+
+                    !lowerHref.includes("cinenews");
 
                 if (
 
