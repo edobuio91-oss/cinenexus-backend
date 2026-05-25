@@ -3,13 +3,18 @@ const cors = require("cors");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const wiki = require("wikipedia");
+const Database = require("better-sqlite3");
 
-const movieMappings =
-    require("./movieMappings.json");
+const db =
+    new Database("cinenexus.db");
 
 const app = express();
 
 app.use(cors());
+
+// ========================================
+// HELPERS
+// ========================================
 
 function normalizeMovieTitle(title) {
 
@@ -19,6 +24,10 @@ function normalizeMovieTitle(title) {
         .replace(/\s+/g, " ")
         .trim();
 }
+
+// ========================================
+// CONFIDENCE
+// ========================================
 
 function calculateConfidence(
     dubbers,
@@ -106,6 +115,10 @@ function calculateConfidence(
     );
 }
 
+// ========================================
+// WIKIPEDIA CHECK
+// ========================================
+
 async function verifyWithWikipedia(movie) {
 
     try {
@@ -137,7 +150,7 @@ async function verifyWithWikipedia(movie) {
             content
         };
 
-    } catch (error) {
+    } catch {
 
         return {
 
@@ -149,6 +162,10 @@ async function verifyWithWikipedia(movie) {
         };
     }
 }
+
+// ========================================
+// WIKIPEDIA DUBBERS
+// ========================================
 
 async function getWikipediaDubbers(
     movie,
@@ -192,58 +209,6 @@ async function getWikipediaDubbers(
 
         const dubbers = [];
 
-        function addDubber(
-            actorName,
-            characterName
-        ) {
-
-            if (
-                !actorName ||
-                !characterName
-            ) {
-
-                return;
-            }
-
-            actorName =
-                actorName
-                    .replace(/\s+/g, " ")
-                    .trim();
-
-            characterName =
-                characterName
-                    .replace(/\s+/g, " ")
-                    .trim();
-
-            if (
-
-                actorName.length < 2 ||
-
-                characterName.length < 2 ||
-
-                actorName.length > 80 ||
-
-                characterName.length > 120
-
-            ) {
-
-                return;
-            }
-
-            console.log(
-                "DUBBER FOUND:",
-                actorName,
-                characterName
-            );
-
-            dubbers.push({
-
-                characterName,
-
-                actorName
-            });
-        }
-
         $(".sinottico tr").each((i, tr) => {
 
             const headerText =
@@ -267,10 +232,6 @@ async function getWikipediaDubbers(
                 return;
             }
 
-            console.log(
-                "ITALIAN DUBBERS INFOBOX FOUND"
-            );
-
             let td =
                 $(tr)
                     .find("td")
@@ -287,22 +248,8 @@ async function getWikipediaDubbers(
 
             if (!td.length) {
 
-                console.log(
-                    "NO TD FOUND"
-                );
-
                 return;
             }
-
-            const rawHtml =
-                td.html() || "";
-
-            console.log(
-                "INFOBOX HTML:",
-                rawHtml
-            );
-
-            const rows = [];
 
             td.find("li").each((i, li) => {
 
@@ -312,41 +259,28 @@ async function getWikipediaDubbers(
                         .replace(/\s+/g, " ")
                         .trim();
 
-                if (line) {
-
-                    rows.push(line);
-                }
-            });
-
-            console.log(
-                "INFOBOX ROWS:",
-                rows
-            );
-
-            rows.forEach(row => {
-
                 let parts = null;
 
                 if (
-                    row.includes(":")
+                    line.includes(":")
                 ) {
 
                     parts =
-                        row.split(":");
+                        line.split(":");
 
                 } else if (
-                    row.includes(" – ")
+                    line.includes(" - ")
                 ) {
 
                     parts =
-                        row.split(" – ");
+                        line.split(" - ");
 
                 } else if (
-                    row.includes(" - ")
+                    line.includes(" – ")
                 ) {
 
                     parts =
-                        row.split(" - ");
+                        line.split(" – ");
                 }
 
                 if (
@@ -367,36 +301,27 @@ async function getWikipediaDubbers(
                         .join(":")
                         .trim();
 
-                addDubber(
-                    actorName,
-                    characterName
-                );
+                if (
+
+                    actorName.length < 2 ||
+
+                    characterName.length < 2
+
+                ) {
+
+                    return;
+                }
+
+                dubbers.push({
+
+                    characterName,
+
+                    actorName
+                });
             });
         });
 
-        const uniqueDubbers =
-
-            dubbers.filter(
-                (item, index, self) =>
-
-                    index ===
-
-                    self.findIndex(d =>
-
-                        d.characterName ===
-                        item.characterName &&
-
-                        d.actorName ===
-                        item.actorName
-                    )
-            );
-
-        console.log(
-            "Wikipedia dubbers parsed:",
-            uniqueDubbers.length
-        );
-
-        return uniqueDubbers.slice(0, 30);
+        return dubbers;
 
     } catch (error) {
 
@@ -404,11 +329,13 @@ async function getWikipediaDubbers(
             "Wikipedia parser failed"
         );
 
-        console.log(error);
-
         return [];
     }
 }
+
+// ========================================
+// MATCH VALIDATION
+// ========================================
 
 function isMatchValid(
     bestMatch,
@@ -465,17 +392,22 @@ function isMatchValid(
     );
 }
 
+// ========================================
+// SQLITE MATCHING
+// ========================================
+
 function findBestMatch(
     movie,
     year,
-    tmdbId
+    tmdbId,
+    runtime
 ) {
 
     const normalizedMovie =
         normalizeMovieTitle(movie);
 
     // ========================================
-    // 1. EXACT TMDB ID MATCH
+    // TMDB EXACT MATCH
     // ========================================
 
     if (tmdbId) {
@@ -486,193 +418,198 @@ function findBestMatch(
         );
 
         const exactMatch =
-            Object.values(movieMappings)
-                .find(item =>
+            db.prepare(`
 
-                    String(item.tmdbId) ===
-                    String(tmdbId)
-                );
+                SELECT *
+                FROM titles
+                WHERE tmdbId = ?
+
+            `).get(tmdbId);
 
         if (exactMatch) {
 
-            console.log(
-                "TMDB EXACT MATCH FOUND:",
-                exactMatch.title
-            );
+            if (
 
-            return {
+                runtime &&
+                exactMatch.runtime
 
-                title:
-                    exactMatch.title,
+            ) {
 
-                url:
-                    exactMatch.url,
+                const runtimeDifference =
+                    Math.abs(
+                        runtime -
+                        exactMatch.runtime
+                    );
 
-                year:
-                    exactMatch.year,
+                console.log(
+                    "Runtime difference:",
+                    runtimeDifference
+                );
 
-                director:
-                    exactMatch.director,
+                if (runtimeDifference >= 25) {
 
-                type:
-                    exactMatch.type,
+                    console.log(
+                        "TMDB exact match rejected"
+                    );
 
-                tmdbTitle:
-                    exactMatch.tmdbTitle,
+                } else {
 
-                tmdbOriginalTitle:
-                    exactMatch.tmdbOriginalTitle,
+                    console.log(
+                        "TMDB EXACT MATCH FOUND:",
+                        exactMatch.title
+                    );
 
-                score: 9999
-            };
+                    return exactMatch;
+                }
+
+            } else {
+
+                return exactMatch;
+            }
         }
-
-        console.log(
-            "No TMDB exact match found"
-        );
     }
 
     // ========================================
-    // 2. ADVANCED TITLE MATCHING
+    // SQLITE SEARCH
     // ========================================
+
+    const possibleMatches =
+        db.prepare(`
+
+            SELECT *
+            FROM titles
+
+            WHERE
+
+                normalizedTitle LIKE ?
+
+                OR
+
+                LOWER(tmdbTitle) LIKE ?
+
+                OR
+
+                LOWER(tmdbOriginalTitle) LIKE ?
+
+        `).all(
+
+            `%${normalizedMovie}%`,
+            `%${normalizedMovie}%`,
+            `%${normalizedMovie}%`
+        );
+
+    if (!possibleMatches.length) {
+
+        return null;
+    }
 
     let scoredMatches = [];
 
-    Object.values(movieMappings)
-        .forEach(item => {
+    for (const item of possibleMatches) {
 
-            const normalizedTitle =
-                normalizeMovieTitle(
-                    item.title || ""
-                );
+        let score = 0;
 
-            const normalizedTmdbTitle =
-                normalizeMovieTitle(
-                    item.tmdbTitle || ""
-                );
+        const normalizedTitle =
+            normalizeMovieTitle(
+                item.title
+            );
 
-            const normalizedOriginalTitle =
-                normalizeMovieTitle(
-                    item.tmdbOriginalTitle || ""
-                );
+        const normalizedTmdbTitle =
+            normalizeMovieTitle(
+                item.tmdbTitle
+            );
 
-            let score = 0;
+        const normalizedOriginalTitle =
+            normalizeMovieTitle(
+                item.tmdbOriginalTitle
+            );
 
-            // EXACT MATCHES
+        // EXACT TITLE
 
-            if (
-                normalizedTitle ===
+        if (
+            normalizedTitle ===
+            normalizedMovie
+        ) {
+
+            score += 150;
+        }
+
+        if (
+            normalizedTmdbTitle ===
+            normalizedMovie
+        ) {
+
+            score += 120;
+        }
+
+        if (
+            normalizedOriginalTitle ===
+            normalizedMovie
+        ) {
+
+            score += 120;
+        }
+
+        // PARTIAL
+
+        if (
+            normalizedTitle.includes(
                 normalizedMovie
-            ) {
+            )
+        ) {
 
-                score += 150;
-            }
+            score += 50;
+        }
 
-            if (
-                normalizedTmdbTitle ===
-                normalizedMovie
-            ) {
+        // YEAR
+
+        if (
+            year &&
+            item.year === year
+        ) {
+
+            score += 200;
+        }
+
+        // RUNTIME
+
+        if (
+
+            runtime &&
+            item.runtime
+
+        ) {
+
+            const runtimeDifference =
+                Math.abs(
+                    runtime -
+                    item.runtime
+                );
+
+            if (runtimeDifference <= 10) {
 
                 score += 120;
-            }
 
-            if (
-                normalizedOriginalTitle ===
-                normalizedMovie
+            } else if (
+                runtimeDifference >= 30
             ) {
 
-                score += 120;
+                score -= 300;
             }
+        }
 
-            // PARTIAL MATCHES
+        // ANIMATION BOOST
 
-            if (
-                normalizedTitle.includes(
-                    normalizedMovie
-                )
-            ) {
+        if (
+            item.category === "animation"
+        ) {
 
-                score += 50;
-            }
+            score += 25;
+        }
 
-            if (
-                normalizedTmdbTitle.includes(
-                    normalizedMovie
-                )
-            ) {
+        item.score = score;
 
-                score += 40;
-            }
-
-            if (
-                normalizedOriginalTitle.includes(
-                    normalizedMovie
-                )
-            ) {
-
-                score += 40;
-            }
-
-            // YEAR BOOST
-
-            if (
-                year &&
-                item.year === year
-            ) {
-
-                score += 200;
-            }
-
-            // ANIMATION BOOST
-
-            if (
-                item.type === "animation"
-            ) {
-
-                score += 25;
-            }
-
-            if (score > 0) {
-
-                scoredMatches.push({
-
-                    title:
-                        item.title,
-
-                    url:
-                        item.url,
-
-                    year:
-                        item.year,
-
-                    director:
-                        item.director,
-
-                    type:
-                        item.type,
-
-                    tmdbId:
-                        item.tmdbId,
-
-                    tmdbTitle:
-                        item.tmdbTitle,
-
-                    tmdbOriginalTitle:
-                        item.tmdbOriginalTitle,
-
-                    score
-                });
-            }
-        });
-
-    console.log(
-        "Possible matches:",
-        scoredMatches
-    );
-
-    if (!scoredMatches.length) {
-
-        return null;
+        scoredMatches.push(item);
     }
 
     scoredMatches.sort(
@@ -687,6 +624,10 @@ function findBestMatch(
     return scoredMatches[0];
 }
 
+// ========================================
+// ROUTE
+// ========================================
+
 app.get("/dubbers", async (req, res) => {
 
     try {
@@ -699,6 +640,11 @@ app.get("/dubbers", async (req, res) => {
 
         const tmdbId =
             req.query.tmdbId;
+
+        const runtime =
+            parseInt(
+                req.query.runtime || "0"
+            );
 
         if (!movie) {
 
@@ -724,11 +670,17 @@ app.get("/dubbers", async (req, res) => {
             tmdbId
         );
 
+        console.log(
+            "Requested runtime:",
+            runtime
+        );
+
         const bestMatch =
             findBestMatch(
                 movie,
                 year,
-                tmdbId
+                tmdbId,
+                runtime
             );
 
         let dubbers = [];
@@ -761,12 +713,12 @@ app.get("/dubbers", async (req, res) => {
 
             console.log(
                 "Matched URL:",
-                bestMatch.url
+                bestMatch.antoniogennaUrl
             );
 
             const response =
                 await axios.get(
-                    bestMatch.url
+                    bestMatch.antoniogennaUrl
                 );
 
             const $ =
@@ -821,13 +773,8 @@ app.get("/dubbers", async (req, res) => {
                             "doppiatori",
                             "aggiunte",
                             "modifiche",
-                            "segnalatelo",
                             "realizzazione",
-                            "antonio genna",
-                            "torna",
-                            "indice",
-                            "home",
-                            "cinema"
+                            "antonio genna"
                         ];
 
                         const isInvalid =
@@ -884,13 +831,25 @@ app.get("/dubbers", async (req, res) => {
                 year
             );
 
-        if (
+        const allowWikipediaFallback =
 
             antonioGennaRejected &&
 
-            wikipediaCheck.found
+            wikipediaCheck.found &&
 
-        ) {
+            (
+
+                !runtime ||
+
+                !bestMatch?.runtime ||
+
+                Math.abs(
+                    runtime -
+                    bestMatch.runtime
+                ) <= 15
+            );
+
+        if (allowWikipediaFallback) {
 
             console.log(
                 "Using Wikipedia fallback"
@@ -930,16 +889,6 @@ app.get("/dubbers", async (req, res) => {
         console.log(
             "Dubbers found:",
             dubbers.length
-        );
-
-        console.log(
-            "Source:",
-            source
-        );
-
-        console.log(
-            "Confidence:",
-            confidence
         );
 
         return res.json({

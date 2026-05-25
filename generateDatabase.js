@@ -1,10 +1,42 @@
-const fs = require("fs");
+const Database = require("better-sqlite3");
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-const TMDB_API_KEY = "ccfb56079b1e4e01c68c03045ea23a21";
+// ========================================
+// CONFIG
+// ========================================
+
+const TMDB_API_KEY =
+    "ccfb56079b1e4e01c68c03045ea23a21";
+
+const db =
+    new Database("cinenexus.db");
+
+db.pragma("journal_mode = WAL");
+
+// ========================================
+// RESET TABLES
+// ========================================
+
+db.prepare(
+    "DELETE FROM dubbers"
+).run();
+
+db.prepare(
+    "DELETE FROM aliases"
+).run();
+
+db.prepare(
+    "DELETE FROM titles"
+).run();
+
+// ========================================
+// INDEX PAGES
+// ========================================
 
 const indexPages = [];
+
+// FILM
 
 for (let i = 1; i <= 25; i++) {
 
@@ -22,6 +54,8 @@ for (let i = 1; i <= 25; i++) {
     }
 }
 
+// ANIMAZIONE
+
 for (let i = 1; i <= 10; i++) {
 
     if (i === 1) {
@@ -38,12 +72,33 @@ for (let i = 1; i <= 10; i++) {
     }
 }
 
+// ========================================
+// HELPERS
+// ========================================
+
 function delay(ms) {
 
     return new Promise(resolve =>
 
         setTimeout(resolve, ms)
     );
+}
+
+function cleanText(text) {
+
+    return (text || "")
+        .replace(/\s+/g, " ")
+        .replace(/\n/g, " ")
+        .trim();
+}
+
+function normalizeTitle(title) {
+
+    return cleanText(title)
+        .toLowerCase()
+        .replace(/[^\w\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
 }
 
 function extractYear(text) {
@@ -56,74 +111,57 @@ function extractYear(text) {
         : "";
 }
 
-function cleanText(text) {
-
-    return (text || "")
-        .replace(/\s+/g, " ")
-        .replace(/\n/g, " ")
-        .trim();
-}
-
 function extractRuntime(text) {
 
     const match =
-        text.match(/DURATA[: ]+(\d+)/i);
+        text.match(/DURATA:\s*(\d+)/i);
 
-    return match
-        ? parseInt(match[1])
-        : null;
+    if (!match) {
+
+        return null;
+    }
+
+    return parseInt(match[1]);
 }
+
+// ========================================
+// TMDB MATCH
+// ========================================
 
 async function getTmdbMatch(
     title,
-    year,
-    metadataType,
-    runtime
+    year
 ) {
 
     try {
 
         await delay(250);
 
-        const normalizedInput =
-            cleanText(title)
-                .toLowerCase();
+        const response =
+            await axios.get(
 
-        let allResults = [];
+                "https://api.themoviedb.org/3/search/multi",
 
-        // ====================================
-        // MULTI SEARCH
-        // ====================================
+                {
 
-        try {
+                    params: {
 
-            const response =
-                await axios.get(
+                        api_key:
+                            TMDB_API_KEY,
 
-                    "https://api.themoviedb.org/3/search/multi",
+                        query:
+                            title,
 
-                    {
-
-                        params: {
-
-                            api_key:
-                                TMDB_API_KEY,
-
-                            query:
-                                title,
-
-                            language:
-                                "it-IT"
-                        }
+                        language:
+                            "it-IT"
                     }
-                );
+                }
+            );
 
-            allResults =
-                response.data.results || [];
+        const results =
+            response.data.results || [];
 
-        } catch {}
-
-        if (!allResults.length) {
+        if (!results.length) {
 
             console.log(
                 "TMDB NOT FOUND:",
@@ -133,11 +171,11 @@ async function getTmdbMatch(
             return null;
         }
 
-        let bestScore = -999;
-
         let bestMatch = null;
 
-        for (const item of allResults) {
+        let bestScore = -999;
+
+        for (const item of results) {
 
             if (
 
@@ -151,28 +189,31 @@ async function getTmdbMatch(
             }
 
             const tmdbTitle =
-                cleanText(
+                normalizeTitle(
 
                     item.title ||
 
                     item.name ||
 
                     ""
-                ).toLowerCase();
+                );
+
+            const normalizedInput =
+                normalizeTitle(title);
 
             let score = 0;
 
-            // ====================================
-            // TITLE MATCH
-            // ====================================
+            // EXACT TITLE
 
             if (
                 tmdbTitle ===
                 normalizedInput
             ) {
 
-                score += 150;
+                score += 100;
             }
+
+            // PARTIAL TITLE
 
             if (
                 tmdbTitle.includes(
@@ -180,12 +221,10 @@ async function getTmdbMatch(
                 )
             ) {
 
-                score += 60;
+                score += 40;
             }
 
-            // ====================================
-            // YEAR MATCH
-            // ====================================
+            // YEAR
 
             const releaseDate =
 
@@ -203,108 +242,24 @@ async function getTmdbMatch(
                 resultYear === year
             ) {
 
-                score += 120;
+                score += 80;
             }
 
-            // ====================================
-            // ANIMATION MATCH
-            // ====================================
-
-            const isAnimated =
-                item.genre_ids?.includes(16);
+            // ANIMATION BOOST
 
             if (
-                metadataType === "animation" &&
-                isAnimated
+                item.genre_ids?.includes(16)
             ) {
 
-                score += 40;
+                score += 15;
             }
 
-            if (
-                metadataType === "movie" &&
-                !isAnimated
-            ) {
-
-                score += 20;
-            }
-
-            // ====================================
             // POPULARITY
-            // ====================================
 
-            score +=
-                Math.min(
-                    item.popularity || 0,
-                    20
-                );
-
-            // ====================================
-            // RUNTIME CHECK
-            // ====================================
-
-            try {
-
-                const details =
-                    await axios.get(
-
-                        `https://api.themoviedb.org/3/${item.media_type}/${item.id}`,
-
-                        {
-
-                            params: {
-
-                                api_key:
-                                    TMDB_API_KEY,
-
-                                language:
-                                    "it-IT"
-                            }
-                        }
-                    );
-
-                const detailsData =
-                    details.data;
-
-                const tmdbRuntime =
-
-                    detailsData.runtime ||
-
-                    detailsData.episode_run_time?.[0] ||
-
-                    null;
-
-                if (
-                    runtime &&
-                    tmdbRuntime
-                ) {
-
-                    const diff =
-                        Math.abs(
-                            runtime -
-                            tmdbRuntime
-                        );
-
-                    // tolleranza runtime
-
-                    if (diff <= 2) {
-
-                        score += 120;
-
-                    } else if (diff <= 5) {
-
-                        score += 60;
-
-                    } else if (diff >= 20) {
-
-                        score -= 250;
-                    }
-                }
-
-                item.__runtime =
-                    tmdbRuntime;
-
-            } catch {}
+            score += Math.min(
+                item.popularity || 0,
+                20
+            );
 
             if (score > bestScore) {
 
@@ -328,9 +283,7 @@ async function getTmdbMatch(
             "TMDB MATCH:",
             title,
             "->",
-            bestMatch.id,
-            "SCORE:",
-            bestScore
+            bestMatch.id
         );
 
         return {
@@ -339,8 +292,11 @@ async function getTmdbMatch(
                 bestMatch.id,
 
             tmdbTitle:
+
                 bestMatch.title ||
+
                 bestMatch.name ||
+
                 "",
 
             tmdbOriginalTitle:
@@ -351,19 +307,16 @@ async function getTmdbMatch(
 
                 "",
 
+            tmdbMediaType:
+                bestMatch.media_type,
+
             tmdbReleaseDate:
 
                 bestMatch.release_date ||
 
                 bestMatch.first_air_date ||
 
-                "",
-
-            tmdbMediaType:
-                bestMatch.media_type,
-
-            tmdbRuntime:
-                bestMatch.__runtime || null
+                ""
         };
 
     } catch (error) {
@@ -376,6 +329,10 @@ async function getTmdbMatch(
         return null;
     }
 }
+
+// ========================================
+// METADATA EXTRACTION
+// ========================================
 
 async function extractMetadata(url) {
 
@@ -409,14 +366,14 @@ async function extractMetadata(url) {
         const runtime =
             extractRuntime(bodyText);
 
+        let director = "";
+
         const directorPatterns = [
 
             /Regia:? ([^.|\n]+)/i,
             /Diretto da:? ([^.|\n]+)/i,
             /Regista:? ([^.|\n]+)/i
         ];
-
-        let director = "";
 
         for (const pattern of directorPatterns) {
 
@@ -432,29 +389,33 @@ async function extractMetadata(url) {
             }
         }
 
-        const type =
+        // CATEGORY
 
+        let category =
+            "movie";
+
+        if (
             url.includes("/anim/")
-                ? "animation"
-                : "movie";
+        ) {
+
+            category =
+                "animation";
+        }
 
         return {
 
             success: true,
 
             year,
-
             runtime,
-
             director,
-
-            type
+            category
         };
 
     } catch (error) {
 
         console.log(
-            "Metadata extraction failed:",
+            "METADATA FAILED:",
             url
         );
 
@@ -463,24 +424,91 @@ async function extractMetadata(url) {
             success: false,
 
             year: "",
-
             runtime: null,
-
             director: "",
-
-            type: ""
+            category: "unknown"
         };
     }
 }
 
-async function generateMappings() {
+// ========================================
+// SAVE TITLE
+// ========================================
 
-    const mappings = {};
+function insertTitle(data) {
+
+    const stmt =
+        db.prepare(`
+
+            INSERT INTO titles (
+
+                title,
+                normalizedTitle,
+
+                year,
+                runtime,
+
+                mediaType,
+                category,
+
+                director,
+
+                tmdbId,
+                tmdbTitle,
+                tmdbOriginalTitle,
+                tmdbMediaType,
+                tmdbReleaseDate,
+
+                antonioGennaUrl,
+
+                source
+
+            )
+
+            VALUES (
+
+                @title,
+                @normalizedTitle,
+
+                @year,
+                @runtime,
+
+                @mediaType,
+                @category,
+
+                @director,
+
+                @tmdbId,
+                @tmdbTitle,
+                @tmdbOriginalTitle,
+                @tmdbMediaType,
+                @tmdbReleaseDate,
+
+                @antonioGennaUrl,
+
+                @source
+            )
+
+        `);
+
+    const result =
+        stmt.run(data);
+
+    return result.lastInsertRowid;
+}
+
+// ========================================
+// MAIN
+// ========================================
+
+async function generateDatabase() {
+
+    let insertedCount = 0;
 
     for (const pageUrl of indexPages) {
 
         console.log(
-            "\nScanning index:",
+            "\nSCANNING:",
             pageUrl
         );
 
@@ -550,19 +578,7 @@ async function generateMappings() {
 
                     !lowerHref.includes("anim.htm") &&
 
-                    !lowerHref.includes("anim-") &&
-
-                    !lowerHref.includes("speciali/") &&
-
-                    !lowerHref.includes("soap") &&
-
-                    !lowerHref.includes("voci.htm") &&
-
-                    !lowerHref.includes("bibliografia") &&
-
-                    !lowerHref.includes("ringraz") &&
-
-                    !lowerHref.includes("cinenews");
+                    !lowerHref.includes("anim-");
 
                 if (
 
@@ -580,7 +596,6 @@ async function generateMappings() {
                     links.push({
 
                         title,
-
                         url: fullUrl
                     });
                 }
@@ -589,7 +604,7 @@ async function generateMappings() {
             for (const link of links) {
 
                 console.log(
-                    "Extracting:",
+                    "\nEXTRACTING:",
                     link.title
                 );
 
@@ -603,24 +618,18 @@ async function generateMappings() {
 
                         link.title,
 
-                        metadata.year,
-
-                        metadata.type,
-
-                        metadata.runtime
+                        metadata.year
                     );
 
-                const uniqueKey =
-
-                    `${link.title}_${metadata.year}_${metadata.type}`;
-
-                mappings[uniqueKey] = {
+                insertTitle({
 
                     title:
                         link.title,
 
-                    url:
-                        link.url,
+                    normalizedTitle:
+                        normalizeTitle(
+                            link.title
+                        ),
 
                     year:
                         metadata.year,
@@ -628,11 +637,17 @@ async function generateMappings() {
                     runtime:
                         metadata.runtime,
 
+                    mediaType:
+
+                        tmdbData?.tmdbMediaType ||
+
+                        metadata.category,
+
+                    category:
+                        metadata.category,
+
                     director:
                         metadata.director,
-
-                    type:
-                        metadata.type,
 
                     tmdbId:
                         tmdbData?.tmdbId || null,
@@ -643,44 +658,46 @@ async function generateMappings() {
                     tmdbOriginalTitle:
                         tmdbData?.tmdbOriginalTitle || "",
 
-                    tmdbReleaseDate:
-                        tmdbData?.tmdbReleaseDate || "",
-
                     tmdbMediaType:
                         tmdbData?.tmdbMediaType || "",
 
-                    tmdbRuntime:
-                        tmdbData?.tmdbRuntime || null,
+                    tmdbReleaseDate:
+                        tmdbData?.tmdbReleaseDate || "",
 
-                    metadataSuccess:
-                        metadata.success
-                };
+                    antonioGennaUrl:
+                        link.url,
 
-                fs.writeFileSync(
+                    source:
+                        "antoniogenna"
+                });
 
-                    "movieMappings.json",
+                insertedCount++;
 
-                    JSON.stringify(
-                        mappings,
-                        null,
-                        2
-                    )
+                console.log(
+                    "INSERTED:",
+                    insertedCount
                 );
             }
 
         } catch (error) {
 
             console.log(
-                "Failed index page:",
+                "INDEX FAILED:",
                 pageUrl
             );
         }
     }
 
     console.log(
-        "\nMappings generated:",
-        Object.keys(mappings).length
+        "\nDATABASE COMPLETE"
     );
+
+    console.log(
+        "TOTAL TITLES:",
+        insertedCount
+    );
+
+    db.close();
 }
 
-generateMappings();
+generateDatabase();
