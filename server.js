@@ -13,7 +13,7 @@ app.use(cors());
 
 function normalizeMovieTitle(title) {
 
-    return title
+    return (title || "")
         .toLowerCase()
         .replace(/[^\w\s]/g, "")
         .replace(/\s+/g, " ")
@@ -429,11 +429,29 @@ function isMatchValid(
             bestMatch.title
         );
 
+    const normalizedTmdbTitle =
+        normalizeMovieTitle(
+            bestMatch.tmdbTitle
+        );
+
+    const normalizedOriginalTitle =
+        normalizeMovieTitle(
+            bestMatch.tmdbOriginalTitle
+        );
+
     const titleMatches =
 
-        normalizedTitle.includes(
-            normalizedMovie
-        );
+        normalizedTitle === normalizedMovie ||
+
+        normalizedTmdbTitle === normalizedMovie ||
+
+        normalizedOriginalTitle === normalizedMovie ||
+
+        normalizedTitle.includes(normalizedMovie) ||
+
+        normalizedTmdbTitle.includes(normalizedMovie) ||
+
+        normalizedOriginalTitle.includes(normalizedMovie);
 
     const yearMatches =
 
@@ -452,6 +470,13 @@ function findBestMatch(
     year,
     tmdbId
 ) {
+
+    const normalizedMovie =
+        normalizeMovieTitle(movie);
+
+    // ========================================
+    // 1. EXACT TMDB ID MATCH
+    // ========================================
 
     if (tmdbId) {
 
@@ -492,66 +517,122 @@ function findBestMatch(
                 type:
                     exactMatch.type,
 
+                tmdbTitle:
+                    exactMatch.tmdbTitle,
+
+                tmdbOriginalTitle:
+                    exactMatch.tmdbOriginalTitle,
+
                 score: 9999
             };
         }
 
         console.log(
-            "No TMDB match found, fallback to title matching"
+            "No TMDB exact match found"
         );
     }
 
-    const normalizedMovie =
-        normalizeMovieTitle(movie);
-
-    const movieWords =
-        normalizedMovie
-            .split(" ")
-            .filter(word =>
-                word.length > 1
-            );
+    // ========================================
+    // 2. ADVANCED TITLE MATCHING
+    // ========================================
 
     let scoredMatches = [];
 
-    Object.keys(movieMappings)
-        .forEach((key) => {
+    Object.values(movieMappings)
+        .forEach(item => {
 
-            const item =
-                movieMappings[key];
-
-            const normalizedKey =
+            const normalizedTitle =
                 normalizeMovieTitle(
-                    item.title
+                    item.title || ""
+                );
+
+            const normalizedTmdbTitle =
+                normalizeMovieTitle(
+                    item.tmdbTitle || ""
+                );
+
+            const normalizedOriginalTitle =
+                normalizeMovieTitle(
+                    item.tmdbOriginalTitle || ""
                 );
 
             let score = 0;
 
-            movieWords.forEach(word => {
+            // EXACT MATCHES
 
-                if (
-                    normalizedKey.includes(word)
-                ) {
+            if (
+                normalizedTitle ===
+                normalizedMovie
+            ) {
 
-                    score++;
-                }
-            });
+                score += 150;
+            }
+
+            if (
+                normalizedTmdbTitle ===
+                normalizedMovie
+            ) {
+
+                score += 120;
+            }
+
+            if (
+                normalizedOriginalTitle ===
+                normalizedMovie
+            ) {
+
+                score += 120;
+            }
+
+            // PARTIAL MATCHES
+
+            if (
+                normalizedTitle.includes(
+                    normalizedMovie
+                )
+            ) {
+
+                score += 50;
+            }
+
+            if (
+                normalizedTmdbTitle.includes(
+                    normalizedMovie
+                )
+            ) {
+
+                score += 40;
+            }
+
+            if (
+                normalizedOriginalTitle.includes(
+                    normalizedMovie
+                )
+            ) {
+
+                score += 40;
+            }
+
+            // YEAR BOOST
+
+            if (
+                year &&
+                item.year === year
+            ) {
+
+                score += 200;
+            }
+
+            // ANIMATION BOOST
+
+            if (
+                item.type === "animation"
+            ) {
+
+                score += 25;
+            }
 
             if (score > 0) {
-
-                if (
-                    year &&
-                    item.year === year
-                ) {
-
-                    score += 100;
-                }
-
-                if (
-                    normalizedKey === normalizedMovie
-                ) {
-
-                    score += 25;
-                }
 
                 scoredMatches.push({
 
@@ -570,6 +651,15 @@ function findBestMatch(
                     type:
                         item.type,
 
+                    tmdbId:
+                        item.tmdbId,
+
+                    tmdbTitle:
+                        item.tmdbTitle,
+
+                    tmdbOriginalTitle:
+                        item.tmdbOriginalTitle,
+
                     score
                 });
             }
@@ -580,13 +670,18 @@ function findBestMatch(
         scoredMatches
     );
 
-    if (scoredMatches.length === 0) {
+    if (!scoredMatches.length) {
 
         return null;
     }
 
     scoredMatches.sort(
         (a, b) => b.score - a.score
+    );
+
+    console.log(
+        "BEST MATCH:",
+        scoredMatches[0]
     );
 
     return scoredMatches[0];

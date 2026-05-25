@@ -73,34 +73,43 @@ async function getTmdbMatch(
 
         await delay(250);
 
-        const response =
-            await axios.get(
+        const normalizedInput =
+            cleanText(title)
+                .toLowerCase();
 
-                "https://api.themoviedb.org/3/search/movie",
+        let allResults = [];
 
-                {
+        // MULTI SEARCH
 
-                    params: {
+        try {
 
-                        api_key:
-                            TMDB_API_KEY,
+            const response =
+                await axios.get(
 
-                        query:
-                            title,
+                    "https://api.themoviedb.org/3/search/multi",
 
-                        year:
-                            year,
+                    {
 
-                        language:
-                            "it-IT"
+                        params: {
+
+                            api_key:
+                                TMDB_API_KEY,
+
+                            query:
+                                title,
+
+                            language:
+                                "it-IT"
+                        }
                     }
-                }
-            );
+                );
 
-        const results =
-            response.data.results || [];
+            allResults =
+                response.data.results || [];
 
-        if (!results.length) {
+        } catch {}
+
+        if (!allResults.length) {
 
             console.log(
                 "TMDB NOT FOUND:",
@@ -110,29 +119,149 @@ async function getTmdbMatch(
             return null;
         }
 
-        const best =
-            results[0];
+        let bestScore = -999;
+
+        let bestMatch = null;
+
+        for (const item of allResults) {
+
+            if (
+
+                item.media_type !== "movie" &&
+
+                item.media_type !== "tv"
+
+            ) {
+
+                continue;
+            }
+
+            const tmdbTitle =
+                cleanText(
+
+                    item.title ||
+
+                    item.name ||
+
+                    ""
+                ).toLowerCase();
+
+            let score = 0;
+
+            // EXACT TITLE
+
+            if (
+                tmdbTitle ===
+                normalizedInput
+            ) {
+
+                score += 100;
+            }
+
+            // PARTIAL TITLE
+
+            if (
+                tmdbTitle.includes(
+                    normalizedInput
+                )
+            ) {
+
+                score += 40;
+            }
+
+            // YEAR CHECK
+
+            const releaseDate =
+
+                item.release_date ||
+
+                item.first_air_date ||
+
+                "";
+
+            const resultYear =
+                releaseDate.slice(0, 4);
+
+            if (
+                year &&
+                resultYear === year
+            ) {
+
+                score += 80;
+            }
+
+            // ANIMATION BOOST
+
+            if (
+                item.genre_ids?.includes(16)
+            ) {
+
+                score += 15;
+            }
+
+            // POPULARITY BOOST
+
+            score +=
+                Math.min(
+                    item.popularity || 0,
+                    20
+                );
+
+            if (score > bestScore) {
+
+                bestScore = score;
+
+                bestMatch = item;
+            }
+        }
+
+        if (!bestMatch) {
+
+            console.log(
+                "TMDB NOT FOUND:",
+                title
+            );
+
+            return null;
+        }
 
         console.log(
             "TMDB MATCH:",
             title,
             "->",
-            best.id
+            bestMatch.id,
+            "SCORE:",
+            bestScore
         );
 
         return {
 
             tmdbId:
-                best.id,
+                bestMatch.id,
 
             tmdbTitle:
-                best.title,
+                bestMatch.title ||
+                bestMatch.name ||
+                "",
 
             tmdbOriginalTitle:
-                best.original_title,
+
+                bestMatch.original_title ||
+
+                bestMatch.original_name ||
+
+                "",
 
             tmdbReleaseDate:
-                best.release_date
+
+                bestMatch.release_date ||
+
+                bestMatch.first_air_date ||
+
+                "",
+
+            tmdbMediaType:
+                bestMatch.media_type
         };
 
     } catch (error) {
@@ -400,6 +529,9 @@ async function generateMappings() {
 
                     tmdbReleaseDate:
                         tmdbData?.tmdbReleaseDate || "",
+
+                    tmdbMediaType:
+                        tmdbData?.tmdbMediaType || "",
 
                     metadataSuccess:
                         metadata.success
