@@ -920,6 +920,23 @@ app.get("/dubbers", async (req, res) => {
     }
 });
 
+app.get("/wiki-test", async (req, res) => {
+
+    const tmdbId = req.query.tmdbId;
+
+    if (!tmdbId) {
+
+        return res.status(400).json({
+            error: "tmdbId missing"
+        });
+    }
+
+    return res.json({
+        message: "Wikipedia test endpoint working",
+        tmdbId
+    });
+});
+
 app.listen(3000, () => {
 
     console.log(
