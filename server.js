@@ -920,21 +920,56 @@ app.get("/dubbers", async (req, res) => {
     }
 });
 
+async function getWikipediaPageFromTmdbTitle(title) {
+
+    try {
+
+        const page =
+            await wiki.page(title);
+
+        const summary =
+            await page.summary();
+
+        return {
+
+            success: true,
+
+            title:
+                summary.title,
+
+            extract:
+                summary.extract
+        };
+
+    } catch (error) {
+
+        return {
+
+            success: false
+        };
+    }
+}
+
 app.get("/wiki-test", async (req, res) => {
 
-    const tmdbId = req.query.tmdbId;
+    const title =
+        req.query.title;
 
-    if (!tmdbId) {
+    if (!title) {
 
         return res.status(400).json({
-            error: "tmdbId missing"
+
+            error:
+                "title missing"
         });
     }
 
-    return res.json({
-        message: "Wikipedia test endpoint working",
-        tmdbId
-    });
+    const result =
+        await getWikipediaPageFromTmdbTitle(
+            title
+        );
+
+    return res.json(result);
 });
 
 app.listen(3000, () => {
