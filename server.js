@@ -920,40 +920,64 @@ app.get("/dubbers", async (req, res) => {
     }
 });
 
-async function getWikipediaPageFromTmdbTitle(title) {
+async function getWikipediaPage(title, year) {
 
-    try {
+    const candidates = [
 
-        const page =
-            await wiki.page(title);
+        `${title} (film ${year})`,
+        `${title} (${year} film)`,
+        `${title} (${year})`,
+        title
+    ];
 
-        const summary =
-            await page.summary();
+    for (const candidate of candidates) {
 
-        return {
+        try {
 
-            success: true,
+            console.log(
+                "Trying Wikipedia:",
+                candidate
+            );
 
-            title:
-                summary.title,
+            const page =
+                await wiki.page(candidate);
 
-            extract:
-                summary.extract
-        };
+            const summary =
+                await page.summary();
 
-    } catch (error) {
+            return {
 
-        return {
+                success: true,
 
-            success: false
-        };
+                searched:
+                    candidate,
+
+                title:
+                    summary.title,
+
+                extract:
+                    summary.extract
+            };
+
+        } catch {
+
+            // prova il successivo
+        }
     }
+
+    return {
+
+        success: false
+    };
 }
 
 app.get("/wiki-test", async (req, res) => {
 
     const title =
         req.query.title;
+
+    const year =
+        req.query.year;
 
     if (!title) {
 
@@ -965,8 +989,9 @@ app.get("/wiki-test", async (req, res) => {
     }
 
     const result =
-        await getWikipediaPageFromTmdbTitle(
-            title
+        await getWikipediaPage(
+            title,
+            year
         );
 
     return res.json(result);
