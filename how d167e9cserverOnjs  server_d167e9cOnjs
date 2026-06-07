@@ -1,0 +1,233 @@
+[33mcommit d167e9c832aac3e15b514c6a75d70ac16d9c17f2[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 26 00:02:54 2026 +0200
+
+    migrate to sqlite
+
+[33mcommit 33a0b4e1216e12f0c38b078193765dea5ad489e9[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Mon May 25 02:13:55 2026 +0200
+
+    Advanced multi fallback matching
+
+[33mcommit 041f438dea62aa35603f6a71876663ca2d216a07[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Wed May 20 08:23:59 2026 +0200
+
+    Regenerated mappings with tmdb ids
+
+[33mcommit 9eec665ccd139885be3973277a4f6f1b56642411[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Wed May 20 01:12:38 2026 +0200
+
+    Fix Wikipedia dubbers parser
+
+[33mcommit 6079ffa6684adc64ebb35c6c9a7a157187da9f64[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Wed May 20 00:59:59 2026 +0200
+
+    Fix Wikipedia next td row parser
+
+[33mcommit 4263a72e95773c3a47947581ebf5e9b6c34b3ec5[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Wed May 20 00:51:34 2026 +0200
+
+    fix wikipedia parser
+
+[33mcommit fb9867951141ef89032e758a6984ac7247a2ba0c[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Wed May 20 00:41:06 2026 +0200
+
+    Fix Wikipedia HTML parser
+
+[33mcommit b7df041d0dab8fc42a2c88e1572523215d6bc48d[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Wed May 20 00:08:20 2026 +0200
+
+    Fix Wikipedia infobox td parser
+
+[33mcommit 3048b51d5808eb83cd342251bb25b0282bd60a85[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 22:52:28 2026 +0200
+
+    Fix Wikipedia infobox dubbers parser
+
+[33mcommit 663a16ecdbf9ca8800a2a8b13552ff04cac1ba07[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 22:39:14 2026 +0200
+
+    Fix Wikipedia infobox parsing with HTML
+
+[33mcommit fca1e11d1ff9ca59726ffc879d8e804aa8802bfb[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 20:42:02 2026 +0200
+
+    Fix Wikipedia infobox parser
+
+[33mcommit 36bd2f610813c2e0c9fa69bc4b1be6b38ed06a97[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 20:24:04 2026 +0200
+
+    Added Wikipedia HTML table parser
+
+[33mcommit c21eeee0e35f13a21e5eb20dbc9316babecbb9c2[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 20:10:58 2026 +0200
+
+    Replaced wikipedia parser with HTML scraping
+
+[33mcommit 3406f825ee75758810b7abfc79eb4f9d3b4f54b2[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 19:55:59 2026 +0200
+
+    Added full wikipedia sections debug
+
+[33mcommit e40b79de9b174fda33a2a213c73a6b9da3b32fb3[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 19:49:23 2026 +0200
+
+    Fixed wikipedia list iteration
+
+[33mcommit fa40a6a40426b7159d35838b0f5048c1ca40ff9e[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 19:41:39 2026 +0200
+
+    Added wikipedia lists parser
+
+[33mcommit ca01c4a7213133d43e004f879583b3208dfd43bd[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 19:28:39 2026 +0200
+
+    Added matched section debug
+
+[33mcommit a5d54ad124809adf26867e5a4d058eacb5795b2b[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 19:19:57 2026 +0200
+
+    Fixed Wikipedia disambiguation handling
+
+[33mcommit e4afe308f29f634c4b69fde6038194c12394056f[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 19:07:51 2026 +0200
+
+    Added wikipedia json debug
+
+[33mcommit 49802029eb4dfbfc9047364e98d7dc1ee0ee4612[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 19:00:37 2026 +0200
+
+    Added wtf_wikipedia structured parser
+
+[33mcommit 9ea536e083ae2a8022bdef49219f604f3be771f4[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 18:40:00 2026 +0200
+
+    Improved Wikipedia keyword detection
+
+[33mcommit 9f702a30643f43688c6b0e6dfe7ad5e9ba44fa9a[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 18:29:49 2026 +0200
+
+    Added proper Wikipedia API access
+
+[33mcommit ffe847ba69b9a960c973b377c582264b4f08ae96[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 18:18:34 2026 +0200
+
+    Fixed Wikipedia API structured parser
+
+[33mcommit 6898f18fbeefda7b70251018e87779800294e46a[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 18:09:40 2026 +0200
+
+    Added structured Wikipedia parser
+
+[33mcommit 75062292b819bf7c691d291e5e199efafcacbcc6[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 17:46:25 2026 +0200
+
+    Improved Wikipedia Level 2 parser
+
+[33mcommit 898e77723620bbe342d77a12e32c1499343f0677[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 17:17:11 2026 +0200
+
+    Added Wikipedia fallback system
+
+[33mcommit 4dbc21d33f1b3ffb63d51e750b4000c86fbb4530[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Tue May 19 00:27:53 2026 +0200
+
+    Added director identity matching
+
+[33mcommit 02a6175e9025635473a95cc0cb1031604c7dbf4f[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Mon May 18 21:08:24 2026 +0200
+
+    Added Wikipedia verification layer
+
+[33mcommit fa2eb61bb71221f6377411a32928abc125efd87f[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Mon May 18 20:59:38 2026 +0200
+
+    Added confidence verification system
+
+[33mcommit ab8e8ea7a37805c79b69b2599c31c2790419076d[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Mon May 18 20:34:10 2026 +0200
+
+    Improved movie matching debug
+
+[33mcommit b89fc2452f1a6f00c39e76d22820d0a22ecaa055[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Mon May 18 20:28:16 2026 +0200
+
+    Improved remake year matching
+
+[33mcommit e9fdf9bd252ffc8d0a74605f108ba15e9db55478[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Mon May 18 20:14:27 2026 +0200
+
+    Improved movie matching scoring
+
+[33mcommit 41f7a8ac94392defb937462accca7cd608948680[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Mon May 18 20:04:22 2026 +0200
+
+    Improved dubbers filtering
+
+[33mcommit 3a4101a086212dc95de6d651c2598f3e1a0a016a[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Sun May 17 17:20:20 2026 +0200
+
+    Improved fuzzy matching v2
+
+[33mcommit a2c82d43a16a5ce4fa44163ed6d819c3184599f0[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Sun May 17 17:10:29 2026 +0200
+
+    Added backend debug logs
+
+[33mcommit 43c5ddad34241a34e14cebd1138fa3ca99b58b83[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Sun May 17 16:51:28 2026 +0200
+
+    Improved universal dubbing parser
+
+[33mcommit 3bf78f1289def389f210875b19632c6b9d5ff951[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Sun May 17 16:37:00 2026 +0200
+
+    Added intelligent movie matching
+
+[33mcommit f6a624cd4ffa8a44f53d97254ceebe49f78fe9b3[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Sun May 17 15:37:52 2026 +0200
+
+    Added movie mappings system
+
+[33mcommit 36cd78936d56515173d21ec9164d5900bea53189[m
+Author: Buglioni Edoardo <buglioni-edoardo@hotmail.it>
+Date:   Sun May 17 14:46:12 2026 +0200
+
+    Initial backend commit

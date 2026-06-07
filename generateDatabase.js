@@ -27,7 +27,11 @@ db.prepare(
 ).run();
 
 db.prepare(
-    "DELETE FROM titles"
+    "DELETE FROM sources"
+).run();
+
+db.prepare(
+    "DELETE FROM entities"
 ).run();
 
 // ========================================
@@ -125,6 +129,84 @@ function extractRuntime(text) {
 }
 
 // ========================================
+// TMDB DETAILS
+// ========================================
+
+async function getTmdbDetails(
+    id,
+    mediaType
+) {
+
+    try {
+
+        await delay(150);
+
+        const endpoint =
+
+            mediaType === "tv"
+                ? "tv"
+                : "movie";
+
+        const response =
+            await axios.get(
+
+                `https://api.themoviedb.org/3/${endpoint}/${id}`,
+
+                {
+
+                    params: {
+
+                        api_key:
+                            TMDB_API_KEY,
+
+                        language:
+                            "it-IT"
+                    }
+                }
+            );
+
+        const data =
+            response.data;
+
+        return {
+
+            runtime:
+
+                data.runtime ||
+
+                data.episode_run_time?.[0] ||
+
+                null,
+
+            italianTitle:
+
+                data.title ||
+
+                data.name ||
+
+                "",
+
+            originalTitle:
+
+                data.original_title ||
+
+                data.original_name ||
+
+                ""
+        };
+
+    } catch {
+
+        return {
+
+            runtime: null,
+            italianTitle: "",
+            originalTitle: ""
+        };
+    }
+}
+
+// ========================================
 // TMDB MATCH
 // ========================================
 
@@ -160,6 +242,23 @@ async function getTmdbMatch(
 
         const results =
             response.data.results || [];
+
+            console.log(
+                "SEARCH:",
+                title,
+                year
+            );
+
+            for (const item of results) {
+
+                console.log(
+                    item.id,
+                    item.media_type,
+                    item.title || item.name,
+                    item.release_date ||
+                    item.first_air_date
+                );
+            }
 
         if (!results.length) {
 
@@ -271,19 +370,27 @@ async function getTmdbMatch(
 
         if (!bestMatch) {
 
-            console.log(
-                "TMDB NOT FOUND:",
-                title
-            );
-
             return null;
         }
+
+        // ========================================
+        // DETAILED TMDB FETCH
+        // ========================================
+
+        const details =
+            await getTmdbDetails(
+
+                bestMatch.id,
+                bestMatch.media_type
+            );
 
         console.log(
             "TMDB MATCH:",
             title,
             "->",
-            bestMatch.id
+            bestMatch.id,
+            "RUNTIME:",
+            details.runtime
         );
 
         return {
@@ -299,13 +406,19 @@ async function getTmdbMatch(
 
                 "",
 
-            tmdbOriginalTitle:
-
-                bestMatch.original_title ||
-
-                bestMatch.original_name ||
+            tmdbItalianTitle:
+                details.italianTitle ||
 
                 "",
+
+            tmdbOriginalTitle:
+
+                details.originalTitle ||
+
+                "",
+
+            tmdbRuntime:
+                details.runtime,
 
             tmdbMediaType:
                 bestMatch.media_type,
@@ -389,8 +502,6 @@ async function extractMetadata(url) {
             }
         }
 
-        // CATEGORY
-
         let category =
             "movie";
 
@@ -412,12 +523,7 @@ async function extractMetadata(url) {
             category
         };
 
-    } catch (error) {
-
-        console.log(
-            "METADATA FAILED:",
-            url
-        );
+    } catch {
 
         return {
 
@@ -432,18 +538,20 @@ async function extractMetadata(url) {
 }
 
 // ========================================
-// SAVE TITLE
+// INSERT ENTITY
 // ========================================
 
-function insertTitle(data) {
+function insertEntity(data) {
 
     const stmt =
         db.prepare(`
 
-            INSERT INTO titles (
+            INSERT INTO entities (
 
-                title,
-                normalizedTitle,
+                canonicalTitle,
+                canonicalOriginalTitle,
+
+                normalizedCanonicalTitle,
 
                 year,
                 runtime,
@@ -454,21 +562,19 @@ function insertTitle(data) {
                 director,
 
                 tmdbId,
-                tmdbTitle,
-                tmdbOriginalTitle,
                 tmdbMediaType,
                 tmdbReleaseDate,
 
-                antonioGennaUrl,
-
-                source
+                sourceConfidence
 
             )
 
             VALUES (
 
-                @title,
-                @normalizedTitle,
+                @canonicalTitle,
+                @canonicalOriginalTitle,
+
+                @normalizedCanonicalTitle,
 
                 @year,
                 @runtime,
@@ -479,14 +585,10 @@ function insertTitle(data) {
                 @director,
 
                 @tmdbId,
-                @tmdbTitle,
-                @tmdbOriginalTitle,
                 @tmdbMediaType,
                 @tmdbReleaseDate,
 
-                @antonioGennaUrl,
-
-                @source
+                @sourceConfidence
             )
 
         `);
@@ -495,6 +597,76 @@ function insertTitle(data) {
         stmt.run(data);
 
     return result.lastInsertRowid;
+}
+
+function insertAlias(data) {
+
+    db.prepare(`
+
+        INSERT INTO aliases (
+
+            entityId,
+
+            alias,
+            normalizedAlias,
+
+            language,
+
+            isPrimary,
+
+            source
+
+        )
+
+        VALUES (
+
+            @entityId,
+
+            @alias,
+            @normalizedAlias,
+
+            @language,
+
+            @isPrimary,
+
+            @source
+        )
+
+    `).run(data);
+}
+
+function insertSource(data) {
+
+    db.prepare(`
+
+        INSERT INTO sources (
+
+            entityId,
+
+            sourceName,
+
+            sourceUrl,
+
+            externalId,
+
+            rawTitle
+
+        )
+
+        VALUES (
+
+            @entityId,
+
+            @sourceName,
+
+            @sourceUrl,
+
+            @externalId,
+
+            @rawTitle
+        )
+
+    `).run(data);
 }
 
 // ========================================
@@ -522,7 +694,9 @@ async function generateDatabase() {
 
             const links = [];
 
-            $("a").each((index, element) => {
+
+
+           $("a").each((index, element) => {
 
                 const href =
                     $(element).attr("href");
@@ -539,26 +713,6 @@ async function generateDatabase() {
 
                 const lowerHref =
                     href.toLowerCase();
-
-                const invalidTitles = [
-
-                    "#",
-                    "torna",
-                    "indice",
-                    "cinema",
-                    "home"
-                ];
-
-                const isInvalidTitle =
-
-                    title.length < 2 ||
-
-                    invalidTitles.some(word =>
-
-                        title
-                            .toLowerCase()
-                            .includes(word)
-                    );
 
                 const isValidPage =
 
@@ -580,12 +734,7 @@ async function generateDatabase() {
 
                     !lowerHref.includes("anim-");
 
-                if (
-
-                    isValidPage &&
-                    !isInvalidTitle
-
-                ) {
+                if (isValidPage) {
 
                     const fullUrl =
                         new URL(
@@ -617,58 +766,203 @@ async function generateDatabase() {
                     await getTmdbMatch(
 
                         link.title,
-
                         metadata.year
                     );
 
-                insertTitle({
+                const entityId =
+                    insertEntity({
 
-                    title:
+                        canonicalTitle:
+
+                            tmdbData?.tmdbItalianTitle ||
+
+                            tmdbData?.tmdbTitle ||
+
+                            link.title,
+
+                        canonicalOriginalTitle:
+
+                            tmdbData?.tmdbOriginalTitle ||
+
+                            link.title,
+
+                        normalizedCanonicalTitle:
+
+                            normalizeTitle(
+
+                                tmdbData?.tmdbItalianTitle ||
+
+                                tmdbData?.tmdbTitle ||
+
+                                link.title
+                            ),
+
+                        year:
+                            metadata.year,
+
+                        runtime:
+
+                            metadata.runtime ||
+
+                            tmdbData?.tmdbRuntime ||
+
+                            null,
+
+                        mediaType:
+
+                            tmdbData?.tmdbMediaType ||
+
+                            metadata.category,
+
+                        category:
+                            metadata.category,
+
+                        director:
+                            metadata.director,
+
+                        tmdbId:
+                            tmdbData?.tmdbId || null,
+
+                        tmdbMediaType:
+                            tmdbData?.tmdbMediaType || "",
+
+                        tmdbReleaseDate:
+                            tmdbData?.tmdbReleaseDate || "",
+
+                        sourceConfidence:
+                            0.8
+                    });
+
+                // ========================================
+                // PRIMARY ALIAS
+                // ========================================
+
+                insertAlias({
+
+                    entityId,
+
+                    alias:
                         link.title,
 
-                    normalizedTitle:
+                    normalizedAlias:
                         normalizeTitle(
                             link.title
                         ),
 
-                    year:
-                        metadata.year,
+                    language:
+                        "it",
 
-                    runtime:
-                        metadata.runtime,
-
-                    mediaType:
-
-                        tmdbData?.tmdbMediaType ||
-
-                        metadata.category,
-
-                    category:
-                        metadata.category,
-
-                    director:
-                        metadata.director,
-
-                    tmdbId:
-                        tmdbData?.tmdbId || null,
-
-                    tmdbTitle:
-                        tmdbData?.tmdbTitle || "",
-
-                    tmdbOriginalTitle:
-                        tmdbData?.tmdbOriginalTitle || "",
-
-                    tmdbMediaType:
-                        tmdbData?.tmdbMediaType || "",
-
-                    tmdbReleaseDate:
-                        tmdbData?.tmdbReleaseDate || "",
-
-                    antonioGennaUrl:
-                        link.url,
+                    isPrimary:
+                        1,
 
                     source:
                         "antoniogenna"
+                });
+
+                // ========================================
+                // TMDB ITALIAN TITLE ALIAS
+                // ========================================
+
+                if (
+
+                    tmdbData?.tmdbItalianTitle &&
+
+                    normalizeTitle(
+                        tmdbData.tmdbItalianTitle
+                    ) !==
+
+                    normalizeTitle(
+                        link.title
+                    )
+
+                ) {
+
+                    insertAlias({
+
+                        entityId,
+
+                        alias:
+                            tmdbData.tmdbItalianTitle,
+
+                        normalizedAlias:
+                            normalizeTitle(
+                                tmdbData.tmdbItalianTitle
+                            ),
+
+                        language:
+                            "it",
+
+                        isPrimary:
+                            0,
+
+                        source:
+                            "tmdb"
+                    });
+                }
+
+                // ========================================
+                // ORIGINAL TITLE ALIAS
+                // ========================================
+
+                if (
+
+                    tmdbData?.tmdbOriginalTitle &&
+
+                    normalizeTitle(
+                        tmdbData.tmdbOriginalTitle
+                    ) !==
+
+                    normalizeTitle(
+                        link.title
+                    )
+
+                ) {
+
+                    insertAlias({
+
+                        entityId,
+
+                        alias:
+                            tmdbData.tmdbOriginalTitle,
+
+                        normalizedAlias:
+                            normalizeTitle(
+                                tmdbData.tmdbOriginalTitle
+                            ),
+
+                        language:
+                            "original",
+
+                        isPrimary:
+                            0,
+
+                        source:
+                            "tmdb"
+                    });
+                }
+
+                // ========================================
+                // SOURCE
+                // ========================================
+
+                insertSource({
+
+                    entityId,
+
+                    sourceName:
+                        "antoniogenna",
+
+                    sourceUrl:
+                        link.url,
+
+                    externalId:
+
+                        String(
+                            tmdbData?.tmdbId || ""
+                        ),
+
+                    rawTitle:
+                        link.title
                 });
 
                 insertedCount++;
@@ -685,6 +979,8 @@ async function generateDatabase() {
                 "INDEX FAILED:",
                 pageUrl
             );
+
+            console.log(error);
         }
     }
 
@@ -693,7 +989,7 @@ async function generateDatabase() {
     );
 
     console.log(
-        "TOTAL TITLES:",
+        "TOTAL ENTITIES:",
         insertedCount
     );
 

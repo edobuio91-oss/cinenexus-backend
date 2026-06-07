@@ -4,6 +4,7 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 const wiki = require("wikipedia");
 const Database = require("better-sqlite3");
+const TMDB_API_KEY = "ccfb56079b1e4e01c68c03045ea23a21";
 
 const db =
     new Database("cinenexus.db");
@@ -995,6 +996,61 @@ app.get("/wiki-test", async (req, res) => {
         );
 
     return res.json(result);
+});
+
+async function getImdbIdFromTmdb(tmdbId) {
+
+    try {
+
+        const response =
+            await axios.get(
+
+                `https://api.themoviedb.org/3/movie/${tmdbId}/external_ids`,
+
+                {
+                    params: {
+                        api_key: TMDB_API_KEY
+                    }
+                }
+            );
+
+        return response.data.imdb_id;
+
+    } catch (error) {
+
+        console.log(
+            "TMDB external_ids failed:",
+            tmdbId
+        );
+
+        return null;
+    }
+}
+
+app.get("/tmdb-test", async (req, res) => {
+
+    const tmdbId =
+        req.query.tmdbId;
+
+    if (!tmdbId) {
+
+        return res.status(400).json({
+
+            error:
+                "tmdbId missing"
+        });
+    }
+
+    const imdbId =
+        await getImdbIdFromTmdb(
+            tmdbId
+        );
+
+    return res.json({
+
+        tmdbId,
+        imdbId
+    });
 });
 
 app.listen(3000, () => {
