@@ -1065,6 +1065,7 @@ app.get("/tmdb-test", async (req, res) => {
     });
 });
 
+
 async function getWikidataIdFromImdb(imdbId) {
 
     try {
@@ -1082,17 +1083,20 @@ async function getWikidataIdFromImdb(imdbId) {
                 }
             );
 
+        const result =
+            response.data.search?.find(
+                item =>
+                    item.match?.text === imdbId
+            );
+
+        return result?.id || null;
+
+    } catch (error) {
+
         console.log(
-            JSON.stringify(
-                response.data,
-                null,
-                2
-            )
+            "Wikidata lookup failed:",
+            imdbId
         );
-
-        return null;
-
-    } catch {
 
         return null;
     }
