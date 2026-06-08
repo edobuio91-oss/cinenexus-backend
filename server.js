@@ -1046,12 +1046,83 @@ app.get("/tmdb-test", async (req, res) => {
             tmdbId
         );
 
+    const wikidataId =
+        await getWikidataIdFromImdb(
+            imdbId
+        );
+
+    const wikipediaTitle =
+        await getItalianWikipediaTitleFromWikidata(
+            wikidataId
+        );
+
     return res.json({
 
         tmdbId,
-        imdbId
+        imdbId,
+        wikidataId,
+        wikipediaTitle
     });
 });
+
+async function getWikidataIdFromImdb(imdbId) {
+
+    try {
+
+        const response =
+            await axios.get(
+                "https://www.wikidata.org/w/api.php",
+                {
+                    params: {
+                        action: "wbsearchentities",
+                        search: imdbId,
+                        language: "en",
+                        format: "json"
+                    }
+                }
+            );
+
+        const result =
+            response.data.search?.find(item =>
+                item.match?.text === imdbId
+            );
+
+        return result?.id || null;
+
+    } catch {
+
+        return null;
+    }
+}
+
+async function getItalianWikipediaTitleFromWikidata(wikidataId) {
+
+    try {
+
+        const response =
+            await axios.get(
+                "https://www.wikidata.org/w/api.php",
+                {
+                    params: {
+                        action: "wbgetentities",
+                        ids: wikidataId,
+                        props: "sitelinks",
+                        format: "json"
+                    }
+                }
+            );
+
+        return response
+            .data
+            .entities?.[wikidataId]
+            ?.sitelinks?.itwiki
+            ?.title || null;
+
+    } catch {
+
+        return null;
+    }
+}
 
 app.listen(3000, () => {
 
