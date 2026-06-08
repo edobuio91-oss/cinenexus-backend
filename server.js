@@ -1083,6 +1083,18 @@ async function getWikidataIdFromImdb(imdbId) {
                 }
             );
 
+        console.log(
+            "WIKIDATA RAW RESPONSE:"
+        );
+
+        console.log(
+            JSON.stringify(
+                response.data,
+                null,
+                2
+            )
+        );
+
         const result =
             response.data.search?.find(
                 item =>
@@ -1094,9 +1106,10 @@ async function getWikidataIdFromImdb(imdbId) {
     } catch (error) {
 
         console.log(
-            "Wikidata lookup failed:",
-            imdbId
+            "WIKIDATA ERROR:"
         );
+
+        console.log(error);
 
         return null;
     }
