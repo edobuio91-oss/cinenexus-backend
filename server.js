@@ -1079,6 +1079,11 @@ async function getWikidataIdFromImdb(imdbId) {
                         search: imdbId,
                         language: "en",
                         format: "json"
+                    },
+
+                    headers: {
+                        "User-Agent":
+                            "CineNexus/1.0 (https://cinenexus.app)"
                     }
                 }
             );
