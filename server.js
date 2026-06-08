@@ -1082,12 +1082,15 @@ async function getWikidataIdFromImdb(imdbId) {
                 }
             );
 
-        const result =
-            response.data.search?.find(item =>
-                item.match?.text === imdbId
-            );
+        console.log(
+            JSON.stringify(
+                response.data,
+                null,
+                2
+            )
+        );
 
-        return result?.id || null;
+        return null;
 
     } catch {
 
