@@ -168,24 +168,17 @@ async function verifyWithWikipedia(movie) {
 // WIKIPEDIA DUBBERS
 // ========================================
 
-async function getWikipediaDubbers(
-    movie,
-    year
+async function getWikipediaDubbersByTitle(
+    wikipediaTitle
 ) {
 
     try {
 
-        const pageTitle =
-
-            year
-
-                ? `${movie}_(film_${year})`
-
-                : movie.replace(/\s+/g, "_");
-
         const wikipediaUrl =
 
-            `https://it.wikipedia.org/wiki/${pageTitle}`;
+            `https://it.wikipedia.org/wiki/${encodeURIComponent(
+                wikipediaTitle
+            )}`;
 
         console.log(
             "Wikipedia URL:",
@@ -223,11 +216,9 @@ async function getWikipediaDubbers(
                     .toLowerCase();
 
             if (
-
                 !headerText.includes(
                     "doppiatori italiani"
                 )
-
             ) {
 
                 return;
@@ -262,9 +253,7 @@ async function getWikipediaDubbers(
 
                 let parts = null;
 
-                if (
-                    line.includes(":")
-                ) {
+                if (line.includes(":")) {
 
                     parts =
                         line.split(":");
@@ -292,43 +281,24 @@ async function getWikipediaDubbers(
                     return;
                 }
 
-                const actorName =
-                    parts[0]
-                        .trim();
-
-                const characterName =
-                    parts
-                        .slice(1)
-                        .join(":")
-                        .trim();
-
-                if (
-
-                    actorName.length < 2 ||
-
-                    characterName.length < 2
-
-                ) {
-
-                    return;
-                }
-
                 dubbers.push({
 
-                    characterName,
+                    actorName:
+                        parts[0].trim(),
 
-                    actorName
+                    characterName:
+                        parts
+                            .slice(1)
+                            .join(":")
+                            .trim()
                 });
             });
+
         });
 
         return dubbers;
 
-    } catch (error) {
-
-        console.log(
-            "Wikipedia parser failed"
-        );
+    } catch {
 
         return [];
     }
@@ -856,21 +826,43 @@ app.get("/dubbers", async (req, res) => {
                 "Using Wikipedia fallback"
             );
 
-            const wikipediaDubbers =
-                await getWikipediaDubbers(
-                    movie,
-                    year
+            const imdbId =
+                await getImdbIdFromTmdb(
+                    tmdbId
                 );
 
-            if (
-                wikipediaDubbers.length > 0
-            ) {
+            const wikidataId =
+                await getWikidataIdFromImdb(
+                    imdbId
+                );
 
-                dubbers =
-                    wikipediaDubbers;
+            const wikipediaTitle =
+                await getItalianWikipediaTitleFromWikidata(
+                    wikidataId
+                );
 
-                source =
-                    "wikipedia";
+            console.log(
+                "Wikipedia title:",
+                wikipediaTitle
+            );
+
+            if (wikipediaTitle) {
+
+                const wikipediaDubbers =
+                    await getWikipediaDubbersByTitle(
+                        wikipediaTitle
+                    );
+
+                if (
+                    wikipediaDubbers.length > 0
+                ) {
+
+                    dubbers =
+                        wikipediaDubbers;
+
+                    source =
+                        "wikipedia";
+                }
             }
         }
 
