@@ -1149,9 +1149,26 @@ async function getItalianWikipediaTitleFromWikidata(wikidataId) {
                         ids: wikidataId,
                         props: "sitelinks",
                         format: "json"
+                    },
+
+                    headers: {
+                        "User-Agent":
+                            "CineNexus/1.0 (https://cinenexus.app)"
                     }
                 }
             );
+
+        console.log(
+            "WIKIDATA ENTITY RESPONSE:"
+        );
+
+        console.log(
+            JSON.stringify(
+                response.data,
+                null,
+                2
+            )
+        );
 
         return response
             .data
@@ -1159,7 +1176,13 @@ async function getItalianWikipediaTitleFromWikidata(wikidataId) {
             ?.sitelinks?.itwiki
             ?.title || null;
 
-    } catch {
+    } catch (error) {
+
+        console.log(
+            "WIKIDATA ENTITY ERROR:"
+        );
+
+        console.log(error);
 
         return null;
     }
