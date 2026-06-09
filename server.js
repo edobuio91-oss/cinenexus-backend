@@ -1070,26 +1070,33 @@ async function getWikidataIdFromImdb(imdbId) {
 
     try {
 
+        const query = `
+            SELECT ?item WHERE {
+              ?item wdt:P345 "${imdbId}" .
+            }
+            LIMIT 1
+        `;
+
         const response =
             await axios.get(
-                "https://www.wikidata.org/w/api.php",
+                "https://query.wikidata.org/sparql",
                 {
                     params: {
-                        action: "wbsearchentities",
-                        search: imdbId,
-                        language: "en",
+                        query,
                         format: "json"
                     },
 
                     headers: {
                         "User-Agent":
-                            "CineNexus/1.0 (https://cinenexus.app)"
+                            "CineNexus/1.0 (https://cinenexus.app)",
+                        "Accept":
+                            "application/sparql-results+json"
                     }
                 }
             );
 
         console.log(
-            "WIKIDATA RAW RESPONSE:"
+            "SPARQL RAW RESPONSE:"
         );
 
         console.log(
@@ -1100,18 +1107,27 @@ async function getWikidataIdFromImdb(imdbId) {
             )
         );
 
-        const result =
-            response.data.search?.find(
-                item =>
-                    item.match?.text === imdbId
-            );
+        const binding =
+            response.data
+                ?.results
+                ?.bindings?.[0];
 
-        return result?.id || null;
+        if (!binding) {
+
+            return null;
+        }
+
+        const entityUrl =
+            binding.item.value;
+
+        return entityUrl
+            .split("/")
+            .pop();
 
     } catch (error) {
 
         console.log(
-            "WIKIDATA ERROR:"
+            "SPARQL ERROR:"
         );
 
         console.log(error);
