@@ -3,7 +3,6 @@ const cors = require("cors");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const wiki = require("wikipedia");
-const Database = require("better-sqlite3");
 const TMDB_API_KEY = "ccfb56079b1e4e01c68c03045ea23a21";
 
 const db =
