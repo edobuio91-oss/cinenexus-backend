@@ -3,165 +3,13 @@ const cors = require("cors");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const wiki = require("wikipedia");
-const TMDB_API_KEY = "ccfb56079b1e4e01c68c03045ea23a21";
 
-const db =
-    new Database("cinenexus.db");
+const TMDB_API_KEY =
+    "ccfb56079b1e4e01c68c03045ea23a21";
 
 const app = express();
 
 app.use(cors());
-
-// ========================================
-// HELPERS
-// ========================================
-
-function normalizeMovieTitle(title) {
-
-    return (title || "")
-        .toLowerCase()
-        .replace(/[^\w\s]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
-}
-
-// ========================================
-// CONFIDENCE
-// ========================================
-
-function calculateConfidence(
-    dubbers,
-    wikipediaCheck,
-    source
-) {
-
-    let confidence = 0;
-
-    if (source === "wikipedia") {
-
-        confidence += 0.35;
-    }
-
-    if (dubbers.length >= 15) {
-
-        confidence += 0.5;
-
-    } else if (dubbers.length >= 8) {
-
-        confidence += 0.3;
-
-    } else if (dubbers.length >= 3) {
-
-        confidence += 0.15;
-    }
-
-    const uniqueActors =
-        new Set(
-
-            dubbers.map(
-                dubber =>
-                    dubber.actorName
-            )
-        );
-
-    if (
-
-        uniqueActors.size >=
-        dubbers.length * 0.8
-
-    ) {
-
-        confidence += 0.2;
-    }
-
-    const suspiciousEntries =
-        dubbers.filter(dubber =>
-
-            dubber.characterName
-                .length < 2 ||
-
-            dubber.actorName
-                .length < 2
-        );
-
-    if (
-        suspiciousEntries.length === 0
-    ) {
-
-        confidence += 0.2;
-    }
-
-    if (
-        wikipediaCheck.found
-    ) {
-
-        confidence += 0.05;
-    }
-
-    if (
-        wikipediaCheck.hasDubbingSection
-    ) {
-
-        confidence += 0.05;
-    }
-
-    if (confidence > 1) {
-
-        confidence = 1;
-    }
-
-    return Number(
-        confidence.toFixed(2)
-    );
-}
-
-// ========================================
-// WIKIPEDIA CHECK
-// ========================================
-
-async function verifyWithWikipedia(movie) {
-
-    try {
-
-        const page =
-            await wiki.page(movie);
-
-        const summary =
-            await page.summary();
-
-        const content =
-            summary.extract
-                .toLowerCase();
-
-        const hasDubbingSection =
-
-            content.includes("doppi") ||
-
-            content.includes("doppiaggio") ||
-
-            content.includes("doppiatori");
-
-        return {
-
-            found: true,
-
-            hasDubbingSection,
-
-            content
-        };
-
-    } catch {
-
-        return {
-
-            found: false,
-
-            hasDubbingSection: false,
-
-            content: ""
-        };
-    }
-}
 
 // ========================================
 // WIKIPEDIA DUBBERS
@@ -200,7 +48,53 @@ async function getWikipediaDubbersByTitle(
                 response.data
             );
 
-        const dubbers = [];
+            console.log("================================");
+            console.log("DEBUG WIKIPEDIA SINOTTICO");
+            console.log("================================");
+
+            $(".sinottico tr").each((i, tr) => {
+
+                console.log(
+                    $(tr)
+                        .text()
+                        .replace(/\s+/g, " ")
+                        .trim()
+                );
+            });
+
+            console.log(
+                $.html()
+                    .substring(0, 30000)
+            );
+
+        const dubbingVersions = [];
+
+        let currentVersion = {
+
+            id: "original",
+
+            name: "Doppiaggio italiano",
+
+            type: "original",
+
+            cast: []
+        };
+
+        dubbingVersions.push(
+            currentVersion
+        );
+
+        const dubbingKeywords = [
+
+            "doppiatori italiani",
+            "voci italiane",
+            "voce italiana",
+            "doppiaggio italiano",
+            "cast del doppiaggio",
+            "cast italiano",
+            "voci",
+            "doppiatori"
+        ];
 
         $(".sinottico tr").each((i, tr) => {
 
@@ -214,11 +108,16 @@ async function getWikipediaDubbersByTitle(
                     .trim()
                     .toLowerCase();
 
-            if (
-                !headerText.includes(
-                    "doppiatori italiani"
-                )
-            ) {
+            const isDubbingSection =
+
+                headerText.includes("doppiatori italiani") ||
+                headerText.includes("voci italiane") ||
+                headerText.includes("voce italiana") ||
+                headerText.includes("doppiaggio italiano") ||
+                headerText.includes("cast del doppiaggio") ||
+                headerText.includes("cast italiano");
+
+            if (!isDubbingSection) {
 
                 return;
             }
@@ -242,358 +141,165 @@ async function getWikipediaDubbersByTitle(
                 return;
             }
 
-            td.find("li").each((i, li) => {
+            console.log("HEADER:");
+            console.log(headerText);
 
-                const line =
-                    $(li)
-                        .text()
-                        .replace(/\s+/g, " ")
-                        .trim();
+            console.log(
+                "TD HTML:"
+            );
 
-                let parts = null;
+            console.log(
+                td.html()
+            );
 
-                if (line.includes(":")) {
+            const container =
+                td.find("div").first();
 
-                    parts =
-                        line.split(":");
+            console.log(
+                "CONTAINER HTML:"
+            );
+            console.log(
+                container.html()
+            );
 
-                } else if (
-                    line.includes(" - ")
-                ) {
+            container.children().each(
+                (i, element) => {
 
-                    parts =
-                        line.split(" - ");
+                const tagName =
+                    element.tagName?.toLowerCase();
 
-                } else if (
-                    line.includes(" – ")
-                ) {
+                // =====================
+                // RIDOPPIAGGIO
+                // =====================
 
-                    parts =
-                        line.split(" – ");
-                }
+                if (tagName === "p") {
 
-                if (
-                    !parts ||
-                    parts.length < 2
-                ) {
+                    const text =
+                        $(element)
+                            .text()
+                            .replace(/\s+/g, " ")
+                            .trim();
+
+                    const match =
+                        text.match(
+                            /ridoppiaggio\s*\((\d{4})\)/i
+                        );
+
+                    if (match) {
+
+                        const year =
+                            match[1];
+
+                        currentVersion = {
+
+                            id:
+                                `redub_${year}`,
+
+                            name:
+                                `Ridoppiaggio (${year})`,
+
+                            type:
+                                "redub",
+
+                            cast: []
+                        };
+
+                        dubbingVersions.push(
+                            currentVersion
+                        );
+                    }
 
                     return;
                 }
 
-                dubbers.push({
+                // =====================
+                // LISTA DOPPIATORI
+                // =====================
 
-                    actorName:
-                        parts[0].trim(),
+                if (tagName !== "ul") {
 
-                    characterName:
-                        parts
-                            .slice(1)
-                            .join(":")
-                            .trim()
-                });
+                    return;
+                }
+
+                $(element)
+                    .find("li")
+                    .each((j, li) => {
+
+                        const line =
+                            $(li)
+                                .text()
+                                .replace(/\s+/g, " ")
+                                .trim();
+
+                        let parts = null;
+
+                        if (line.includes(":")) {
+
+                            parts =
+                                line.split(":");
+
+                        } else if (
+                            line.includes(" - ")
+                        ) {
+
+                            parts =
+                                line.split(" - ");
+
+                        } else if (
+                            line.includes(" – ")
+                        ) {
+
+                            parts =
+                                line.split(" – ");
+                        }
+
+                        if (
+                            !parts ||
+                            parts.length < 2
+                        ) {
+
+                            return;
+                        }
+
+                        const actorName =
+                            parts[0].trim();
+
+                        const characterName =
+                            parts
+                                .slice(1)
+                                .join(":")
+                                .trim();
+
+                        if (
+                            actorName === "Pat Welsh"
+                        ) {
+
+                            return;
+                        }
+
+                        currentVersion.cast.push({
+
+                            actorName,
+
+                            characterName
+                        });
+
+                    });
+
             });
 
-        });
 
-        return dubbers;
+        });
+        return dubbingVersions.filter(
+            version =>
+                version.cast.length > 0
+        );
 
     } catch {
 
         return [];
     }
 }
-
-// ========================================
-// MATCH VALIDATION
-// ========================================
-
-function isMatchValid(
-    bestMatch,
-    movie,
-    year
-) {
-
-    if (!bestMatch) {
-
-        return false;
-    }
-
-    const normalizedMovie =
-        normalizeMovieTitle(movie);
-
-    const normalizedTitle =
-        normalizeMovieTitle(
-            bestMatch.title
-        );
-
-    const normalizedTmdbTitle =
-        normalizeMovieTitle(
-            bestMatch.tmdbTitle
-        );
-
-    const normalizedOriginalTitle =
-        normalizeMovieTitle(
-            bestMatch.tmdbOriginalTitle
-        );
-
-    const titleMatches =
-
-        normalizedTitle === normalizedMovie ||
-
-        normalizedTmdbTitle === normalizedMovie ||
-
-        normalizedOriginalTitle === normalizedMovie ||
-
-        normalizedTitle.includes(normalizedMovie) ||
-
-        normalizedTmdbTitle.includes(normalizedMovie) ||
-
-        normalizedOriginalTitle.includes(normalizedMovie);
-
-    const yearMatches =
-
-        !year ||
-
-        bestMatch.year === year;
-
-    return (
-        titleMatches &&
-        yearMatches
-    );
-}
-
-// ========================================
-// SQLITE MATCHING
-// ========================================
-
-function findBestMatch(
-    movie,
-    year,
-    tmdbId,
-    runtime
-) {
-
-    const normalizedMovie =
-        normalizeMovieTitle(movie);
-
-    // ========================================
-    // TMDB EXACT MATCH
-    // ========================================
-
-    if (tmdbId) {
-
-        console.log(
-            "Searching by TMDB ID:",
-            tmdbId
-        );
-
-        const exactMatch =
-            db.prepare(`
-
-                SELECT *
-                FROM titles
-                WHERE tmdbId = ?
-
-            `).get(tmdbId);
-
-        if (exactMatch) {
-
-            if (
-
-                runtime &&
-                exactMatch.runtime
-
-            ) {
-
-                const runtimeDifference =
-                    Math.abs(
-                        runtime -
-                        exactMatch.runtime
-                    );
-
-                console.log(
-                    "Runtime difference:",
-                    runtimeDifference
-                );
-
-                if (runtimeDifference >= 25) {
-
-                    console.log(
-                        "TMDB exact match rejected"
-                    );
-
-                } else {
-
-                    console.log(
-                        "TMDB EXACT MATCH FOUND:",
-                        exactMatch.title
-                    );
-
-                    return exactMatch;
-                }
-
-            } else {
-
-                return exactMatch;
-            }
-        }
-    }
-
-    // ========================================
-    // SQLITE SEARCH
-    // ========================================
-
-    const possibleMatches =
-        db.prepare(`
-
-            SELECT *
-            FROM titles
-
-            WHERE
-
-                normalizedTitle LIKE ?
-
-                OR
-
-                LOWER(tmdbTitle) LIKE ?
-
-                OR
-
-                LOWER(tmdbOriginalTitle) LIKE ?
-
-        `).all(
-
-            `%${normalizedMovie}%`,
-            `%${normalizedMovie}%`,
-            `%${normalizedMovie}%`
-        );
-
-    if (!possibleMatches.length) {
-
-        return null;
-    }
-
-    let scoredMatches = [];
-
-    for (const item of possibleMatches) {
-
-        let score = 0;
-
-        const normalizedTitle =
-            normalizeMovieTitle(
-                item.title
-            );
-
-        const normalizedTmdbTitle =
-            normalizeMovieTitle(
-                item.tmdbTitle
-            );
-
-        const normalizedOriginalTitle =
-            normalizeMovieTitle(
-                item.tmdbOriginalTitle
-            );
-
-        // EXACT TITLE
-
-        if (
-            normalizedTitle ===
-            normalizedMovie
-        ) {
-
-            score += 150;
-        }
-
-        if (
-            normalizedTmdbTitle ===
-            normalizedMovie
-        ) {
-
-            score += 120;
-        }
-
-        if (
-            normalizedOriginalTitle ===
-            normalizedMovie
-        ) {
-
-            score += 120;
-        }
-
-        // PARTIAL
-
-        if (
-            normalizedTitle.includes(
-                normalizedMovie
-            )
-        ) {
-
-            score += 50;
-        }
-
-        // YEAR
-
-        if (
-            year &&
-            item.year === year
-        ) {
-
-            score += 200;
-        }
-
-        // RUNTIME
-
-        if (
-
-            runtime &&
-            item.runtime
-
-        ) {
-
-            const runtimeDifference =
-                Math.abs(
-                    runtime -
-                    item.runtime
-                );
-
-            if (runtimeDifference <= 10) {
-
-                score += 120;
-
-            } else if (
-                runtimeDifference >= 30
-            ) {
-
-                score -= 300;
-            }
-        }
-
-        // ANIMATION BOOST
-
-        if (
-            item.category === "animation"
-        ) {
-
-            score += 25;
-        }
-
-        item.score = score;
-
-        scoredMatches.push(item);
-    }
-
-    scoredMatches.sort(
-        (a, b) => b.score - a.score
-    );
-
-    console.log(
-        "BEST MATCH:",
-        scoredMatches[0]
-    );
-
-    return scoredMatches[0];
-}
-
 // ========================================
 // ROUTE
 // ========================================
@@ -602,302 +308,92 @@ app.get("/dubbers", async (req, res) => {
 
     try {
 
-        const movie =
-            req.query.movie;
-
-        const year =
-            req.query.year;
-
         const tmdbId =
             req.query.tmdbId;
 
-        const runtime =
-            parseInt(
-                req.query.runtime || "0"
-            );
-
-        if (!movie) {
+        if (!tmdbId) {
 
             return res.status(400).json({
 
                 error:
-                    "Movie title missing"
+                    "tmdbId missing"
             });
         }
-
-        console.log(
-            "Requested movie:",
-            movie
-        );
-
-        console.log(
-            "Requested year:",
-            year
-        );
 
         console.log(
             "Requested TMDB ID:",
             tmdbId
         );
 
-        console.log(
-            "Requested runtime:",
-            runtime
-        );
-
-        const bestMatch =
-            findBestMatch(
-                movie,
-                year,
-                tmdbId,
-                runtime
+        const imdbId =
+            await getImdbIdFromTmdb(
+                tmdbId
             );
 
-        let dubbers = [];
+        if (!imdbId) {
 
-        let source =
-            "antoniogenna";
+            return res.status(404).json({
 
-        let matchedTitle =
-            null;
-
-        if (
-
-            bestMatch &&
-
-            isMatchValid(
-                bestMatch,
-                movie,
-                year
-            )
-
-        ) {
-
-            matchedTitle =
-                bestMatch.title;
-
-            console.log(
-                "Matched title:",
-                matchedTitle
-            );
-
-            console.log(
-                "Matched URL:",
-                bestMatch.antoniogennaUrl
-            );
-
-            const response =
-                await axios.get(
-                    bestMatch.antoniogennaUrl
-                );
-
-            const $ =
-                cheerio.load(response.data);
-
-            $("tr").each((index, element) => {
-
-                const cells =
-                    $(element).find("td");
-
-                if (cells.length >= 2) {
-
-                    const texts = [];
-
-                    cells.each((i, cell) => {
-
-                        texts.push(
-
-                            $(cell)
-                                .text()
-                                .replace(/\n/g, " ")
-                                .replace(/\s+/g, " ")
-                                .trim()
-                        );
-                    });
-
-                    const filteredTexts =
-                        texts.filter(
-
-                            text =>
-
-                                text.length > 0 &&
-                                text !==
-                                "PERSONAGGI" &&
-                                text !==
-                                "DOPPIATORI ITALIANI"
-                        );
-
-                    if (filteredTexts.length >= 2) {
-
-                        const characterName =
-                            filteredTexts[0];
-
-                        const actorName =
-                            filteredTexts[
-                                filteredTexts.length - 1
-                            ];
-
-                        const invalidWords = [
-
-                            "interpreti",
-                            "doppiatori",
-                            "aggiunte",
-                            "modifiche",
-                            "realizzazione",
-                            "antonio genna"
-                        ];
-
-                        const isInvalid =
-
-                            invalidWords.some(word =>
-
-                                characterName
-                                    .toLowerCase()
-                                    .includes(word)
-
-                                ||
-
-                                actorName
-                                    .toLowerCase()
-                                    .includes(word)
-                            );
-
-                        if (
-
-                            !isInvalid &&
-
-                            characterName.length > 1 &&
-
-                            actorName.length > 1
-
-                        ) {
-
-                            dubbers.push({
-
-                                characterName,
-
-                                actorName
-                            });
-                        }
-                    }
-                }
+                error:
+                    "IMDb not found"
             });
         }
 
-        const wikipediaCheck =
-            await verifyWithWikipedia(
-                movie
+        const wikidataId =
+            await getWikidataIdFromImdb(
+                imdbId
             );
 
-        const antonioGennaRejected =
+        if (!wikidataId) {
 
-            dubbers.length < 3 ||
+            return res.status(404).json({
 
-            !bestMatch ||
+                error:
+                    "Wikidata not found"
+            });
+        }
 
-            !isMatchValid(
-                bestMatch,
-                movie,
-                year
+        const wikipediaTitle =
+            await getItalianWikipediaTitleFromWikidata(
+                wikidataId
             );
 
-        const allowWikipediaFallback =
+        if (!wikipediaTitle) {
 
-            antonioGennaRejected &&
+            return res.status(404).json({
 
-            wikipediaCheck.found &&
+                error:
+                    "Wikipedia page not found"
+            });
+        }
 
-            (
+        console.log(
+            "Wikipedia title:",
+            wikipediaTitle
+        );
 
-                !runtime ||
-
-                !bestMatch?.runtime ||
-
-                Math.abs(
-                    runtime -
-                    bestMatch.runtime
-                ) <= 15
-            );
-
-        if (allowWikipediaFallback) {
-
-            console.log(
-                "Using Wikipedia fallback"
-            );
-
-            const imdbId =
-                await getImdbIdFromTmdb(
-                    tmdbId
-                );
-
-            const wikidataId =
-                await getWikidataIdFromImdb(
-                    imdbId
-                );
-
-            const wikipediaTitle =
-                await getItalianWikipediaTitleFromWikidata(
-                    wikidataId
-                );
-
-            console.log(
-                "Wikipedia title:",
+        const dubbingVersions =
+            await getWikipediaDubbersByTitle(
                 wikipediaTitle
             );
 
-            if (wikipediaTitle) {
-
-                const wikipediaDubbers =
-                    await getWikipediaDubbersByTitle(
-                        wikipediaTitle
-                    );
-
-                if (
-                    wikipediaDubbers.length > 0
-                ) {
-
-                    dubbers =
-                        wikipediaDubbers;
-
-                    source =
-                        "wikipedia";
-                }
-            }
-        }
-
-        const confidence =
-            calculateConfidence(
-
-                dubbers,
-
-                wikipediaCheck,
-
-                source
-            );
-
-        const verified =
-            confidence >= 0.5;
-
-        console.log(
-            "Dubbers found:",
-            dubbers.length
-        );
-
         return res.json({
 
-            movie,
+            tmdbId,
 
-            matchedTitle,
+            imdbId,
 
-            source,
+            wikidataId,
 
-            verified,
+            wikipediaTitle,
 
-            confidence,
+            source:
+                "wikipedia",
 
-            wikipediaCheck,
+            verified:
+                dubbingVersions.length > 0,
 
-            dubbers
+            dubbingVersions
         });
 
     } catch (error) {
@@ -907,7 +403,7 @@ app.get("/dubbers", async (req, res) => {
         return res.status(500).json({
 
             error:
-                "Scraping failed"
+                "Dubbing lookup failed"
         });
     }
 });
@@ -1056,8 +552,12 @@ app.get("/tmdb-test", async (req, res) => {
     });
 });
 
-
 async function getWikidataIdFromImdb(imdbId) {
+
+    if (!imdbId) {
+
+        return null;
+    }
 
     try {
 
@@ -1129,6 +629,11 @@ async function getWikidataIdFromImdb(imdbId) {
 
 async function getItalianWikipediaTitleFromWikidata(wikidataId) {
 
+    if (!wikidataId) {
+
+        return null;
+    }
+
     try {
 
         const response =
@@ -1187,3 +692,5 @@ app.listen(PORT, () => {
         `CineNexus backend running on port ${PORT}`
     );
 });
+
+
