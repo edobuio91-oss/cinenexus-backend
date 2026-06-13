@@ -3,6 +3,7 @@ const cors = require("cors");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const wiki = require("wikipedia");
+const Database = require("better-sqlite3");
 
 const TMDB_API_KEY =
     "ccfb56079b1e4e01c68c03045ea23a21";
@@ -10,6 +11,21 @@ const TMDB_API_KEY =
 const app = express();
 
 app.use(cors());
+
+const db = new Database("cinenexus.db");
+
+db.exec(`
+
+CREATE TABLE IF NOT EXISTS dubbing_cache (
+
+    tmdbId TEXT PRIMARY KEY,
+
+    json TEXT NOT NULL,
+
+    updatedAt INTEGER NOT NULL
+)
+
+`);
 
 // ========================================
 // WIKIPEDIA DUBBERS
@@ -264,6 +280,17 @@ async function getWikipediaDubbersByTitle(
                         const actorName =
                             parts[0].trim();
 
+                        const actorLink =
+                            $(li)
+                                .find("a")
+                                .first()
+                                .attr("href");
+
+                        const wikipediaUrl =
+                            actorLink
+                                ? `https:${actorLink}`
+                                : null;
+
                         const characterName =
                             parts
                                 .slice(1)
@@ -281,7 +308,9 @@ async function getWikipediaDubbersByTitle(
 
                             actorName,
 
-                            characterName
+                            characterName,
+
+                            wikipediaUrl
                         });
 
                     });
@@ -310,6 +339,28 @@ app.get("/dubbers", async (req, res) => {
 
         const tmdbId =
             req.query.tmdbId;
+
+        // ========================================
+        // CACHE LOOKUP
+        // ========================================
+
+        const cached = db
+            .prepare(
+                "SELECT json FROM dubbing_cache WHERE tmdbId = ?"
+            )
+            .get(tmdbId);
+
+        if (cached) {
+
+            console.log(
+                "CACHE HIT:",
+                tmdbId
+            );
+
+            return res.json(
+                JSON.parse(cached.json)
+            );
+        }
 
         if (!tmdbId) {
 
@@ -377,7 +428,7 @@ app.get("/dubbers", async (req, res) => {
                 wikipediaTitle
             );
 
-        return res.json({
+        const result = {
 
             tmdbId,
 
@@ -394,7 +445,37 @@ app.get("/dubbers", async (req, res) => {
                 dubbingVersions.length > 0,
 
             dubbingVersions
-        });
+        };
+
+        // ========================================
+        // SAVE CACHE
+        // ========================================
+
+        db.prepare(
+
+            `INSERT OR REPLACE INTO
+            dubbing_cache (
+                tmdbId,
+                json,
+                updatedAt
+            )
+            VALUES (?, ?, ?)`
+
+        ).run(
+
+            tmdbId,
+
+            JSON.stringify(result),
+
+            Date.now()
+        );
+
+        console.log(
+            "CACHE SAVED:",
+            tmdbId
+        );
+
+        return res.json(result);
 
     } catch (error) {
 
