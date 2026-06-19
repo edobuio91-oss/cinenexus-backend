@@ -778,6 +778,11 @@ async function getWikidataIdFromWikipediaTitle(title) {
                         prop: "pageprops",
                         titles: title,
                         format: "json"
+                    },
+
+                    headers: {
+                        "User-Agent":
+                            "CineNexus/1.0 (contact: support@cinenexus.app)"
                     }
                 }
             );
