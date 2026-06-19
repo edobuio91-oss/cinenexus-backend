@@ -807,6 +807,68 @@ async function getWikidataIdFromWikipediaTitle(title) {
     }
 }
 
+async function getTmdbPersonIdFromWikidata(
+    wikidataId,
+    wikipediaTitle
+) {
+
+    try {
+
+        const searchName =
+            wikipediaTitle.replaceAll("_", " ");
+
+        const searchResponse =
+            await axios.get(
+
+                "https://api.themoviedb.org/3/search/person",
+
+                {
+                    params: {
+                        api_key: TMDB_API_KEY,
+                        query: searchName
+                    }
+                }
+            );
+
+        for (const person of searchResponse.data.results) {
+
+            const externalIdsResponse =
+                await axios.get(
+
+                    `https://api.themoviedb.org/3/person/${person.id}/external_ids`,
+
+                    {
+                        params: {
+                            api_key: TMDB_API_KEY
+                        }
+                    }
+                );
+
+            if (
+
+                externalIdsResponse.data.wikidata_id ===
+                wikidataId
+
+            ) {
+
+                return person.id;
+            }
+        }
+
+        return null;
+
+    } catch (error) {
+
+        console.log(
+            "TMDB PERSON LOOKUP ERROR:"
+        );
+
+        console.log(error);
+
+        return null;
+    }
+}
+
 app.get("/dubber-person", async (req, res) => {
 
     try {
@@ -860,6 +922,82 @@ app.get("/dubber-person", async (req, res) => {
 
             error:
                 "Dubber lookup failed"
+        });
+    }
+});
+
+app.get("/dubber-tmdb", async (req, res) => {
+
+    try {
+
+        const wikipediaUrl =
+            req.query.wikipediaUrl;
+
+        if (!wikipediaUrl) {
+
+            return res.status(400).json({
+
+                error:
+                    "wikipediaUrl missing"
+            });
+        }
+
+        const wikipediaTitle =
+            decodeURIComponent(
+
+                wikipediaUrl
+                    .split("/wiki/")
+                    .pop()
+            );
+
+        const wikidataId =
+            await getWikidataIdFromWikipediaTitle(
+                wikipediaTitle
+            );
+
+        if (!wikidataId) {
+
+            return res.status(404).json({
+
+                error:
+                    "Wikidata not found"
+            });
+        }
+
+        const personId =
+            await getTmdbPersonIdFromWikidata(
+
+                wikidataId,
+
+                wikipediaTitle
+            );
+
+        if (!personId) {
+
+            return res.status(404).json({
+
+                error:
+                    "TMDb person not found"
+            });
+        }
+
+        return res.json({
+
+            wikipediaTitle,
+
+            wikidataId,
+
+            personId
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+
+            error:
+                "Dubber TMDb lookup failed"
         });
     }
 });
