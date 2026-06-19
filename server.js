@@ -765,6 +765,100 @@ async function getItalianWikipediaTitleFromWikidata(wikidataId) {
     }
 }
 
+async function getWikidataIdFromWikipediaTitle(title) {
+
+    try {
+
+        const response =
+            await axios.get(
+                "https://it.wikipedia.org/w/api.php",
+                {
+                    params: {
+                        action: "query",
+                        prop: "pageprops",
+                        titles: title,
+                        format: "json"
+                    }
+                }
+            );
+
+        const pages =
+            response.data.query.pages;
+
+        const page =
+            Object.values(pages)[0];
+
+        return page?.pageprops?.wikibase_item || null;
+
+    } catch (error) {
+
+        console.log(
+            "WIKIPEDIA TITLE ERROR:"
+        );
+
+        console.log(error);
+
+        return null;
+    }
+}
+
+app.get("/dubber-person", async (req, res) => {
+
+    try {
+
+        const wikipediaUrl =
+            req.query.wikipediaUrl;
+
+        if (!wikipediaUrl) {
+
+            return res.status(400).json({
+
+                error:
+                    "wikipediaUrl missing"
+            });
+        }
+
+        const title =
+            decodeURIComponent(
+
+                wikipediaUrl
+                    .split("/wiki/")
+                    .pop()
+            );
+
+        const wikidataId =
+            await getWikidataIdFromWikipediaTitle(
+                title
+            );
+
+        if (!wikidataId) {
+
+            return res.status(404).json({
+
+                error:
+                    "Wikidata not found"
+            });
+        }
+
+        return res.json({
+
+            wikipediaTitle: title,
+
+            wikidataId
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+
+            error:
+                "Dubber lookup failed"
+        });
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
