@@ -926,6 +926,107 @@ app.get("/dubber-person", async (req, res) => {
     }
 });
 
+app.get("/voice-debug", async (req, res) => {
+
+    try {
+
+        const personId =
+            req.query.personId;
+
+        if (!personId) {
+
+            return res.status(400).json({
+
+                error: "personId missing"
+            });
+        }
+
+        const externalIdsResponse =
+            await axios.get(
+
+                `https://api.themoviedb.org/3/person/${personId}/external_ids`,
+
+                {
+                    params: {
+                        api_key: TMDB_API_KEY
+                    }
+                }
+            );
+
+        const wikidataId =
+            externalIdsResponse.data.wikidata_id;
+
+        console.log(
+            "WIKIDATA:",
+            wikidataId
+        );
+
+        const wikipediaTitle =
+            await getItalianWikipediaTitleFromWikidata(
+                wikidataId
+            );
+
+        console.log(
+            "WIKIPEDIA:",
+            wikipediaTitle
+        );
+
+        const wikipediaUrl =
+
+            `https://it.wikipedia.org/wiki/${encodeURIComponent(
+                wikipediaTitle
+            )}`;
+
+        const response =
+            await axios.get(
+                wikipediaUrl
+            );
+
+        const $ =
+            cheerio.load(
+                response.data
+            );
+
+        console.log(
+            "========== H2 =========="
+        );
+
+        $("h2").each((i, el) => {
+
+            console.log(
+                $(el).text()
+            );
+        });
+
+        console.log(
+            "========== H3 =========="
+        );
+
+        $("h3").each((i, el) => {
+
+            console.log(
+                $(el).text()
+            );
+        });
+
+        res.json({
+
+            personId,
+            wikidataId,
+            wikipediaTitle
+        });
+
+    } catch (e) {
+
+        console.error(e);
+
+        res.status(500).json({
+
+            error: e.toString()
+        });
+    }
+});
+
 app.get("/dubber-tmdb", async (req, res) => {
 
     try {
