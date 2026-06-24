@@ -961,13 +961,48 @@ app.get("/voice-credits", async (req, res) => {
                 wikidataId
             );
 
+        const wikipediaUrl =
+            `https://it.wikipedia.org/wiki/${encodeURIComponent(
+                wikipediaTitle
+            )}`;
+
+        const response =
+            await axios.get(
+                wikipediaUrl,
+                {
+                    headers: {
+                        "User-Agent":
+                            "Mozilla/5.0"
+                    }
+                }
+            );
+
+        const $ =
+            cheerio.load(
+                response.data
+            );
+
+        const sections = [];
+
+        $("h3").each((i, el) => {
+
+            sections.push(
+                $(el)
+                    .text()
+                    .replace(/\s+/g, " ")
+                    .trim()
+            );
+        });
+
         return res.json({
 
             personId,
 
             wikidataId,
 
-            wikipediaTitle
+            wikipediaTitle,
+
+            sections
         });
 
     } catch (e) {
