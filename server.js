@@ -979,7 +979,13 @@ app.get("/voice-debug", async (req, res) => {
 
         const response =
             await axios.get(
-                wikipediaUrl
+                wikipediaUrl,
+                {
+                    headers: {
+                        "User-Agent":
+                            "Mozilla/5.0"
+                    }
+                }
             );
 
         const $ =
