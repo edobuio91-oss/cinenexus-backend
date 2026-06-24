@@ -926,6 +926,61 @@ app.get("/dubber-person", async (req, res) => {
     }
 });
 
+app.get("/voice-credits", async (req, res) => {
+
+    try {
+
+        const personId =
+            req.query.personId;
+
+        if (!personId) {
+
+            return res.status(400).json({
+
+                error: "personId missing"
+            });
+        }
+
+        const externalIdsResponse =
+            await axios.get(
+
+                `https://api.themoviedb.org/3/person/${personId}/external_ids`,
+
+                {
+                    params: {
+                        api_key: TMDB_API_KEY
+                    }
+                }
+            );
+
+        const wikidataId =
+            externalIdsResponse.data.wikidata_id;
+
+        const wikipediaTitle =
+            await getItalianWikipediaTitleFromWikidata(
+                wikidataId
+            );
+
+        return res.json({
+
+            personId,
+
+            wikidataId,
+
+            wikipediaTitle
+        });
+
+    } catch (e) {
+
+        console.error(e);
+
+        return res.status(500).json({
+
+            error: e.toString()
+        });
+    }
+});
+
 app.get("/voice-debug", async (req, res) => {
 
     try {
@@ -1007,6 +1062,43 @@ app.get("/voice-debug", async (req, res) => {
         console.log(
             "========== H3 =========="
         );
+
+        $("h3").each((i, el) => {
+
+            const title =
+                $(el).text().trim();
+
+            console.log(
+                "SECTION:",
+                title
+            );
+
+            let current =
+                $(el).next();
+
+            let count = 0;
+
+            while (
+                current.length &&
+                current[0].tagName !== "h3" &&
+                current[0].tagName !== "h2" &&
+                count < 10
+            ) {
+
+                console.log(
+                    current.text()
+                        .replace(/\s+/g, " ")
+                        .trim()
+                        .substring(0, 300)
+                );
+
+                current =
+                    current.next();
+
+                count++;
+            }
+
+        });
 
         $("h3").each((i, el) => {
 
