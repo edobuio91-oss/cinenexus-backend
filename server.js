@@ -1083,6 +1083,8 @@ app.get("/voice-debug", async (req, res) => {
                 response.data
             );
 
+        console.log(response.data.substring(0, 5000));
+
         console.log(
             "========== H2 =========="
         );
