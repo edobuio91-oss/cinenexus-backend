@@ -988,44 +988,33 @@ app.get("/voice-credits", async (req, res) => {
 
         let current = filmHeader.parent().next();
 
-        console.log("========== FILM NODES ==========");
+       const dubbing = [];
 
-        while (
-            current.length &&
-            current[0].tagName !== "h2" &&
-            current[0].tagName !== "h3"
-        ) {
+       while (
+           current.length &&
+           current[0].tagName !== "h2" &&
+           current[0].tagName !== "h3"
+       ) {
 
-            console.log("TAG:", current[0].tagName);
-            console.log(
-                current.text()
-                    .replace(/\s+/g, " ")
-                    .trim()
-                    .substring(0, 300)
-            );
+           if (current[0].tagName === "ul") {
 
-            console.log("--------------------------------");
+               current.find("li").each((i, li) => {
 
-            current = current.next();
-        }
+                   dubbing.push(
 
-        const sections = [];
+                       $(li)
+                           .text()
+                           .replace(/\s+/g, " ")
+                           .trim()
 
-        $("h2, h3").each((i, el) => {
+                   );
 
-            sections.push({
+               });
 
-                tag: el.tagName,
+           }
 
-                title: $(el)
-                    .text()
-                    .replace(/\[.*?\]/g, "")
-                    .replace(/\s+/g, " ")
-                    .trim()
-
-            });
-
-        });
+           current = current.next();
+       }
 
         return res.json({
 
@@ -1035,7 +1024,8 @@ app.get("/voice-credits", async (req, res) => {
 
             wikipediaTitle,
 
-            sections
+            dubbing
+
         });
 
     } catch (e) {
