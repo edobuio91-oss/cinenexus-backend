@@ -982,6 +982,27 @@ app.get("/voice-credits", async (req, res) => {
                 response.data
             );
 
+        const filmHeader = $("h3").filter((i, el) =>
+            $(el).text().replace(/\[.*?\]/g, "").trim() === "Film"
+        ).first();
+
+        console.log("========== FILM HTML ==========");
+
+        let current = filmHeader.next();
+
+        while (
+            current.length &&
+            current[0].tagName !== "h3" &&
+            current[0].tagName !== "h2"
+        ) {
+
+            console.log(current.prop("tagName"));
+            console.log(current.html());
+            console.log("--------------------------------");
+
+            current = current.next();
+        }
+
         const sections = [];
 
         $("h2, h3").each((i, el) => {
