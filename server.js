@@ -984,14 +984,20 @@ app.get("/voice-credits", async (req, res) => {
 
         const sections = [];
 
-        $("h3").each((i, el) => {
+        $("h2, h3").each((i, el) => {
 
-            sections.push(
-                $(el)
+            sections.push({
+
+                tag: el.tagName,
+
+                title: $(el)
                     .text()
+                    .replace(/\[.*?\]/g, "")
                     .replace(/\s+/g, " ")
                     .trim()
-            );
+
+            });
+
         });
 
         return res.json({
