@@ -982,36 +982,48 @@ app.get("/voice-credits", async (req, res) => {
                 response.data
             );
 
-        const filmHeader = $("h3").filter((i, el) =>
-            $(el).text().replace(/\[.*?\]/g, "").trim() === "Film"
-        ).first();
+        const dubbing = [];
 
-        let current = filmHeader.parent().next();
+        let currentH2 = "";
+        let currentH3 = "";
 
-       const dubbing = [];
+        $("h2, h3, ul").each((i, el) => {
 
-       while (
-           current.length &&
-           current[0].tagName !== "h2" &&
-           current[0].tagName !== "h3"
-       ) {
+            const tag = el.tagName.toLowerCase();
 
-           if (current[0].tagName === "ul") {
+            if (tag === "h2") {
 
-               current.find("li").each((i, li) => {
+                currentH2 = $(el)
+                    .text()
+                    .replace(/\[.*?\]/g, "")
+                    .trim();
 
-                   dubbing.push(
+                currentH3 = "";
 
-                       $(li)
-                           .text()
-                           .replace(/\s+/g, " ")
-                           .trim()
+                return;
+            }
 
-                   );
+            if (tag === "h3") {
 
-               });
+                currentH3 = $(el)
+                    .text()
+                    .replace(/\[.*?\]/g, "")
+                    .trim();
 
-           }
+                return;
+            }
+
+            if (tag !== "ul") {
+
+                return;
+            }
+
+            console.log("H2:", currentH2);
+            console.log("H3:", currentH3);
+            console.log("Righe:", $(el).find("li").length);
+            console.log("-------------------");
+
+        });
 
            current = current.next();
        }
