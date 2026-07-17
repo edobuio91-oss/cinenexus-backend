@@ -4,6 +4,15 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 const wiki = require("wikipedia");
 const Database = require("better-sqlite3");
+const {
+    extractWorkLinks
+} = require("./extractors/extractWorkLinks");
+const {
+    resolveAudiovisualLinks
+} = require("./extractors/resolveAudiovisualLinks");
+const {
+    resolveWikidataEntities
+} = require("./extractors/resolveWikidataEntities");
 
 const TMDB_API_KEY =
     "ccfb56079b1e4e01c68c03045ea23a21";
@@ -926,32 +935,143 @@ app.get("/dubber-person", async (req, res) => {
     }
 });
 
+function extractTitles(line) {
+
+    const separators = [
+        " nell'",
+        " nella ",
+        " nello ",
+        " negli ",
+        " nelle ",
+        " nel ",
+        " nei ",
+        " ne ",
+        " in "
+    ];
+
+    let titlesPart = line;
+
+    for (const separator of separators) {
+
+        const index =
+            line.indexOf(separator);
+
+        if (index !== -1) {
+
+            titlesPart =
+                line.substring(
+                    index + separator.length
+                );
+
+            break;
+        }
+    }
+
+    return titlesPart
+        .split(",")
+        .map(title => title.trim())
+        .filter(title => title.length > 0);
+
+}
+
+
+
+async function searchTmdbTitle(title) {
+
+    try {
+
+        const movie = await axios.get(
+            "https://api.themoviedb.org/3/search/movie",
+            {
+                params: {
+                    api_key: TMDB_API_KEY,
+                    query: title,
+                    language: "it-IT"
+                }
+            }
+        );
+
+        if (movie.data.results.length > 0) {
+
+            const m = movie.data.results[0];
+
+            return {
+
+                id: m.id,
+                title: m.title,
+                poster: m.poster_path,
+                mediaType: "movie"
+
+            };
+
+        }
+
+        const tv = await axios.get(
+            "https://api.themoviedb.org/3/search/tv",
+            {
+                params: {
+                    api_key: TMDB_API_KEY,
+                    query: title,
+                    language: "it-IT"
+                }
+            }
+        );
+
+        if (tv.data.results.length > 0) {
+
+            const t = tv.data.results[0];
+
+            return {
+
+                id: t.id,
+                title: t.name,
+                poster: t.poster_path,
+                mediaType: "tv"
+
+            };
+
+        }
+
+        return null;
+
+    } catch {
+
+        return null;
+
+    }
+
+}
+
 app.get("/voice-credits", async (req, res) => {
 
     try {
 
-        const personId =
-            req.query.personId;
+        const personId = req.query.personId;
 
         if (!personId) {
 
             return res.status(400).json({
 
                 error: "personId missing"
+
             });
         }
 
-        const externalIdsResponse =
-            await axios.get(
+        const externalIdsResponse = await axios.get(
 
-                `https://api.themoviedb.org/3/person/${personId}/external_ids`,
+            `https://api.themoviedb.org/3/person/${personId}/external_ids`,
 
-                {
-                    params: {
-                        api_key: TMDB_API_KEY
-                    }
+            {
+
+                params: {
+
+                    api_key: TMDB_API_KEY
+
                 }
-            );
+
+            }
+
+        );
 
         const wikidataId =
             externalIdsResponse.data.wikidata_id;
@@ -966,23 +1086,25 @@ app.get("/voice-credits", async (req, res) => {
                 wikipediaTitle
             )}`;
 
-        const response =
-            await axios.get(
-                wikipediaUrl,
-                {
-                    headers: {
-                        "User-Agent":
-                            "Mozilla/5.0"
-                    }
+        const response = await axios.get(
+
+            wikipediaUrl,
+
+            {
+
+                headers: {
+
+                    "User-Agent": "Mozilla/5.0"
+
                 }
-            );
 
-        const $ =
-            cheerio.load(
-                response.data
-            );
+            }
 
-        const dubbing = [];
+        );
+
+        const $ = cheerio.load(response.data);
+
+        const credits = [];
 
         let currentH2 = "";
         let currentH3 = "";
@@ -1014,19 +1136,106 @@ app.get("/voice-credits", async (req, res) => {
             }
 
             if (tag !== "ul") {
-
                 return;
             }
 
-            console.log("H2:", currentH2);
-            console.log("H3:", currentH3);
-            console.log("Righe:", $(el).find("li").length);
-            console.log("-------------------");
+            if (
+                currentH2 === "Doppiaggio" &&
+                (
+                    currentH3 === "Film" ||
+                    currentH3 === "Film d'animazione" ||
+                    currentH3 === "Serie TV e miniserie" ||
+                    currentH3 === "Cartoni animati"
+                )
+            ) {
+
+                const entries = [];
+
+                $(el).find("li").each((i, li) => {
+
+                    const line =
+                        $(li)
+                            .text()
+                            .replace(/\[\d+\]/g, "")
+                            .trim();
+
+                    console.log("RIGA:", line);
+
+                    const workLinks =
+                        extractWorkLinks($, li);
+
+                    console.log("WORK LINKS:", workLinks);
+
+
+
+                    entries.push({
+
+                        line,
+
+                        titles: extractTitles(line),
+
+                        workLinks
+
+                    });
+
+                });
+
+                credits.push({
+
+                    section: currentH2,
+
+                    category: currentH3,
+
+                    entries
+
+                });
+
+            }
+
+            if (
+                currentH2 === "Filmografia" &&
+                (
+                    currentH3 === "Cinema" ||
+                    currentH3 === "Televisione"
+                )
+            ) {
+
+                const entries = [];
+
+                $(el).find("li").each((i, li) => {
+
+                    entries.push(
+
+                        $(li)
+                            .text()
+                            .replace(/\[\d+\]/g, "")
+                            .trim()
+
+                    );
+
+                });
+
+                credits.push({
+
+                    section: currentH2,
+
+                    category: currentH3,
+
+                    entries
+
+                });
+
+            }
 
         });
 
-           current = current.next();
-       }
+        console.log("BEFORE resolveAudiovisualLinks");
+
+        await resolveAudiovisualLinks(credits);
+
+        console.log("AFTER resolveAudiovisualLinks");
+
+        await resolveWikidataEntities(credits);
 
         return res.json({
 
@@ -1036,7 +1245,7 @@ app.get("/voice-credits", async (req, res) => {
 
             wikipediaTitle,
 
-            dubbing
+            credits
 
         });
 
@@ -1047,8 +1256,11 @@ app.get("/voice-credits", async (req, res) => {
         return res.status(500).json({
 
             error: e.toString()
+
         });
+
     }
+
 });
 
 app.get("/voice-debug", async (req, res) => {
