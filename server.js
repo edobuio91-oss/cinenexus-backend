@@ -3,6 +3,10 @@ const cors = require("cors");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const wiki = require("wikipedia");
+const {
+    getVerifiedMediaWorks,
+    verifyMediaWork
+} = require("./services/mediaWork");
 const Database = require("better-sqlite3");
 const {
     extractWorkLinks
@@ -1483,6 +1487,100 @@ app.get("/dubber-tmdb", async (req, res) => {
                 "Dubber TMDb lookup failed"
         });
     }
+});
+
+app.get("/person/:personId/mediaworks", async (req, res) => {
+
+    try {
+
+        const personId =
+            req.params.personId;
+
+        if (!personId) {
+
+            return res.status(400).json({
+
+                error: "personId missing"
+
+            });
+
+        }
+
+        console.log(
+            "MEDIAWORKS PERSON ID:",
+            personId
+        );
+
+        const mediaWorks =
+            await getVerifiedMediaWorks(
+                personId
+            );
+
+        return res.json(
+            mediaWorks
+        );
+
+    } catch (error) {
+
+        console.error(
+            "MediaWorks lookup failed:",
+            error
+        );
+
+        return res.status(500).json({
+
+            error:
+                "MediaWorks lookup failed"
+
+        });
+
+    }
+
+});
+
+app.get("/person/:personId/mediaworks/test/:mediaId", async (req, res) => {
+
+    try {
+
+        const personId =
+            req.params.personId;
+
+        const mediaId =
+            Number(req.params.mediaId);
+
+        const result =
+            await verifyMediaWork(
+                personId,
+                {
+                    id: mediaId,
+                    media_type: "movie"
+                }
+            );
+
+        return res.json({
+
+            verified: result !== null,
+
+            mediaWork: result
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "MediaWork verification test failed:",
+            error.message
+        );
+
+        return res.status(500).json({
+
+            error:
+                "MediaWork verification failed"
+
+        });
+
+    }
+
 });
 
 const PORT = process.env.PORT || 3000;
