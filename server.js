@@ -1583,6 +1583,18 @@ app.get("/person/:personId/mediaworks/test/:mediaId", async (req, res) => {
 
 });
 
+// ========================================
+// HEALTH CHECK
+// ========================================
+
+app.get("/health", (req, res) => {
+
+    return res.json({
+        status: "ok"
+    });
+
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
