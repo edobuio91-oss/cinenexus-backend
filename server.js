@@ -342,6 +342,134 @@ async function getWikipediaDubbersByTitle(
         return [];
     }
 }
+
+// ========================================
+// WIKIPEDIA PROFILE IMAGES
+// Recupera le immagini dei doppiatori
+// con una sola richiesta API
+// ========================================
+
+async function addWikipediaProfileImages(
+    dubbingVersions
+) {
+
+    try {
+
+        const allActors = dubbingVersions
+            .flatMap(version => version.cast)
+            .filter(actor => actor.wikipediaUrl);
+
+        if (allActors.length === 0) {
+            return dubbingVersions;
+        }
+
+        // Evita duplicati
+        const uniqueActors = [
+            ...new Map(
+                allActors.map(actor => [
+                    actor.wikipediaUrl,
+                    actor
+                ])
+            ).values()
+        ];
+
+        const titles = uniqueActors
+            .map(actor => {
+
+                const url =
+                    actor.wikipediaUrl;
+
+                return decodeURIComponent(
+                    url.split("/wiki/").pop()
+                );
+
+            })
+            .join("|");
+
+        const response =
+            await axios.get(
+                "https://it.wikipedia.org/w/api.php",
+                {
+                    params: {
+                        action: "query",
+                        format: "json",
+                        formatversion: 2,
+                        prop: "pageimages",
+                        piprop: "thumbnail",
+                        pithumbsize: 180,
+                        pilimit: 50,
+                        titles
+                    },
+
+                    headers: {
+                        "User-Agent":
+                            "CineNexus/1.0 (https://cinenexus.app)"
+                    }
+                }
+            );
+
+        const pages =
+            response.data?.query?.pages || [];
+
+        const imageMap = new Map();
+
+        pages.forEach(page => {
+
+            if (
+                page.title &&
+                page.thumbnail?.source
+            ) {
+
+                imageMap.set(
+                    page.title,
+                    page.thumbnail.source
+                );
+            }
+
+        });
+
+        return dubbingVersions.map(version => {
+
+            return {
+                ...version,
+
+                cast: version.cast.map(actor => {
+
+                    if (!actor.wikipediaUrl) {
+                        return actor;
+                    }
+
+                    const title =
+                        decodeURIComponent(
+                            actor.wikipediaUrl
+                                .split("/wiki/")
+                                .pop()
+                        );
+
+                    return {
+                        ...actor,
+
+                        profileImageUrl:
+                            imageMap.get(title) || null
+                    };
+
+                })
+            };
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "WIKIPEDIA PROFILE IMAGES ERROR:",
+            error.message
+        );
+
+        // Se il recupero delle immagini fallisce,
+        // i doppiatori rimangono comunque disponibili.
+        return dubbingVersions;
+    }
+}
 // ========================================
 // ROUTE
 // ========================================
@@ -370,8 +498,53 @@ app.get("/dubbers", async (req, res) => {
                 tmdbId
             );
 
+            let cachedResult =
+                JSON.parse(cached.json);
+
+            const hasProfileImages =
+                cachedResult.dubbingVersions?.every(
+                    version =>
+                        version.cast?.every(
+                            actor =>
+                                !actor.wikipediaUrl ||
+                                actor.profileImageUrl
+                        )
+                );
+
+            if (hasProfileImages) {
+
+                return res.json(
+                    cachedResult
+                );
+            }
+
+            console.log(
+                "CACHE UPDATE: PROFILE IMAGES",
+                tmdbId
+            );
+
+            cachedResult.dubbingVersions =
+                await addWikipediaProfileImages(
+                    cachedResult.dubbingVersions || []
+                );
+
+            db.prepare(
+                `UPDATE dubbing_cache
+                 SET json = ?, updatedAt = ?
+                 WHERE tmdbId = ?`
+            ).run(
+                JSON.stringify(cachedResult),
+                Date.now(),
+                tmdbId
+            );
+
+            console.log(
+                "CACHE UPDATED:",
+                tmdbId
+            );
+
             return res.json(
-                JSON.parse(cached.json)
+                cachedResult
             );
         }
 
@@ -436,9 +609,14 @@ app.get("/dubbers", async (req, res) => {
             wikipediaTitle
         );
 
-        const dubbingVersions =
+        let dubbingVersions =
             await getWikipediaDubbersByTitle(
                 wikipediaTitle
+            );
+
+        dubbingVersions =
+            await addWikipediaProfileImages(
+                dubbingVersions
             );
 
         const result = {
