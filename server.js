@@ -349,6 +349,14 @@ async function getWikipediaDubbersByTitle(
 // con una sola richiesta API
 // ========================================
 
+function normalizeWikipediaTitle(title) {
+
+    return decodeURIComponent(title)
+        .replace(/_/g, " ")
+        .trim();
+
+}
+
 async function addWikipediaProfileImages(
     dubbingVersions
 ) {
@@ -421,7 +429,7 @@ async function addWikipediaProfileImages(
             ) {
 
                 imageMap.set(
-                    page.title,
+                    normalizeWikipediaTitle(page.title),
                     page.thumbnail.source
                 );
             }
@@ -440,7 +448,7 @@ async function addWikipediaProfileImages(
                     }
 
                     const title =
-                        decodeURIComponent(
+                        normalizeWikipediaTitle(
                             actor.wikipediaUrl
                                 .split("/wiki/")
                                 .pop()
@@ -507,9 +515,9 @@ app.get("/dubbers", async (req, res) => {
                         version.cast?.every(
                             actor =>
                                 !actor.wikipediaUrl ||
-                                actor.profileImageUrl
+                                typeof actor.profileImageUrl === "string"
                         )
-                );
+                ) ?? false;
 
             if (hasProfileImages) {
 
